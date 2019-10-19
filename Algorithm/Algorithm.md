@@ -202,6 +202,124 @@ void push_heap(vector<int>& heap, int newValue){
 ```
 
 #### 최대 원소 꺼내기
+배열을 이용해 구현한 최대 힙에서 최대 원소는 배열의 첫 원소를 확인하면 됨  
+문제는 최대 원소를 힙에서 꺼내는 일, 힙의 엄격한 모양 제한 때문에 구현이 까다로움  
+새 원소의 삽입과 같이 모양 규칙을 충족하는 힙을 먼저 만든 뒤 대소 관계 규칙을 만족하도록 조작하면 좀 더 간단하게 구현 가능  
+힙의 모양 구조에 의해 힙의 마지막에 있는 노드는 어차피 지워질 것임, 따라서 이 노드를 일단 지우고 시작함  
+*(이 노드는 리프이기 때문에 노드가 지워져도 힙의 구조에는 영향을 끼치지 않음)*  
+마지막 노드에 있던 원소를 루트에 덮어 씌우면 힙의 모양 규칙은 만족시킴  
+
+이후에 힙의 대소 관계 조건을 만족시키기 위해 루트가 두 자식이 가지고 있던 원소 중 큰 쪽이 루트에 올라와야하기 때문에, 두 자식 노드가 가진 원소 중 큰 원소와 맞바꿈  
+그리고 이 작업을 트리의 바닥에 도달하거나, 두 자손이 모두 자기 자신 이하의 원소를 갖고 있을 때까지 반복하면 됨
+```
+// 정수를 담는 최대 힙 heap에서 heap[0]을 제거
+void pop_heap(vector<int>& heap){
+    // 힙의 맨 끝에서 값을 가져와 루트에 덮어씌움
+    heap[0] = heap.back();
+    heap.pop_back();
+    int here = 0;
+    while(true){
+        int left = here * 2 + 1, right = here * 2 + 2;
+        // 리프에 도달한 경우
+        if(left >= heap.size()) break;
+        // heap[here]가 내려갈 위치를 찾음
+        int next = here;
+        if(heap[next] < heap[left])
+            next = left;
+        if(right < heap.size() && heap[next] < heap[right])
+            next = right;
+        if(next == here) break;
+        swap(heap[here], heap[next]);
+        here = next;
+    }
+}
+```
+
+### 4. 구간 트리
+구간 트리는 흔이 일차원 배열의 특정 구간에 대한 질문을 빠르게 대답하는데 사용함  
+구간 최소 쿼리(range minimum query, RMQ)라고 불리는 특정 구간의 최소치를 찾는 문제는 구간 트리의 예 중 하나  
+```
+(0, 14)
+(0, 7)                                        | (8, 14)
+(0, 3)                | (4, 7)                | (8, 11)                 | (12, 14)
+(0, 1)    | (2, 3)    | (4, 5)    | (6, 7)    | (8, 9)    | (10, 11)    | (12, 13)    | (14)
+(0) | (1) | (2) | (3) | (4) | (5) | (6) | (7) | (8) | (9) | (10) | (11) | (12) | (13) | (14)
+```
+↑ 길이 15인 배열을 표현하는 구간 트리가 저장하는 구간들  
+
+#### 구간 트리의 표현
+구간 트리는 비교적 **'꽉 찬' 이진 트리**임  
+꽉 찬 이진 트리는 포인터로 연결된 객체를 표현하기보다는 **배열로 표현하는 것**이 메모리를 더 절약할 수 있음  
+루트 노드를 배열의 1번 원소로, 노드 i의 왼쪽 자손과 오른쪽 자손을 각각 2 x i와 2 x i + 1번 원소로 표현  
+이 배열의 길이는 가장 가까운 2의 거듭제곱으로 n을 올림한 뒤 2를 곱하거나 그냥 n에 4를 곱해도 됨(메모리는 손해)
+
+#### 구간 트리의 초기화
+```
+// 배열의 구간 최소 쿼리를 해결하기 위한 구간 트리의 구현
+struct RMQ{
+    // 배열의 길이
+    int n;
+    // 각 구간의 최소치
+    vector<int> rangeMin;
+    RMQ(const vector<int>& array){
+        n = array.size();
+        rangeMin.resize(n * 4);
+        init(array, 0, n-1, 1);
+    }
+}
+// node 노드가 array[left..right] 배열을 표현할 때
+// node를 루트로 하는 서브트리를 초기화하고, 이 구간의 최소치를 반환
+int init(const vector<int>& array, int left, int right, int node){
+    if(left == right)
+        return rangeMin[node] = array[left];
+    int mid = (left + right) / 2;
+    int leftMin = init(array, left, mid, node * 2);
+    int rightMin = init(array, mid + 1, right, node * 2 + 1);
+    return rangeMin[node] = min(leftMin, rightMin);
+}
+```
+위의 코드는 RMQ 문제를 해결하는 RMQ 클래스의 구조와 각 노드마다 해당 구간의 최소치를 계산하는 함수 init()을 구현한 것  
+구간 트리의 각 노드에 대해 위치 등을 저장해 두지 않음  
+(해당 노드를 찾아가는 과정에서 표현하는 구간을 동적으로 계산할 수 있기 때문에 저장하지 않아도 됨)  
+
+#### 구간 트리의 질의 처리
+초기화를 했으면 임의의 구간의 최소치를 구할 준비가 된 것  
+이것을 구간 트리에서의 질의(query) 연산 이라고 부름  
+질의 연산은 구간 트리에서의 순회를 응용해 간단하게 구현 가능  
+
+    query(left, right, node, nodeLeft, nodeRight) = node가 표현하는 범위 [nodeLeft, nodeRight]와 우리가 최소치를 찾기 원하는 구간 [left, right]의 교집합의 최소 원소를 반환
+
+- 교집합이 공집합인 경우  
+    두 구간은 서로 겹치지 않음, 따라서 반환 값음 존재하지 않음.  
+    반환 값이 무시되도록 아주 큰 값을 반환
+- 교집합이 [nodeLeft, nodeRight]인 경우  
+    [left, right]가 노드가 표현하는 집합을 완전히 포함하는 경우  
+    이 노드에 미리 계산해 둔 최소치를 곧장 반환하면 됨
+- 이 외의 모든 경우  
+    두 개의 자손 노드에 대해 query()를 재귀 호출한 뒤, 이 두 값 중 더 작은 값을 택해 반환
+
+```
+const int INT_MAX = numeric_limits<int>::max();
+struct RMQ{
+    // ..생략..
+    // node가 표현하는 범위 array[nodeLeft..nodeRight]가 주어질 때
+    // 이 범위와 array[left..right]의 교집합의 최소치를 구함
+    int query(int left, int right, int node, int nodeLeft, int nodeRight){
+        // 두 구간이 겹치지 않으면 아주 큰 값을 반환 : 무시됨
+        if(right < nodeLeft || nodeRight < left)    return INT_MAX;
+        // node가 표현하는 범위가 array[left..right]에 완전히 포함되는 경우
+        if(left <= nodeLeft && nodeRight <= right)  return rangeMin[node];
+        // 양쪽 구간을 나눠서 푼 뒤 결과를 합침
+        int mid = (nodeLeft + nodeRight) / 2;
+        return min(query(left, right, node*2, nodeLeft, mid), 
+                   query(left, right, node*2+1, mid+1, nodeRight));
+    }
+    // query()를 외부에서 호출하기 위한 인터페이스
+    int query(int left, int right){
+        return query(left, right, 1, 0, n-1);
+    }
+}
+```
 
 
 ---
