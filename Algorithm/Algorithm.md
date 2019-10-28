@@ -756,5 +756,197 @@ void getEulerCircuit(int here, vector<int>& circuit){
 그리고 (b, a) 간선을 지워서 서킷을 끊으면 오일러 트레일을 얻을 수 있음  
 따라서 오일러 트레일의 존재 조건은 시작점과 끝점을 잇는 간선을 하나 추가한 뒤 모든 점이 짝수점이 되려면, **시작점과 끝점을 제외한 모든 점은 짝수점이고 시작점과 끝점은 홀수점**이어야 함
 
+#### 방향 그래프에서의 오일러 서킷
+방향 그래프에서 오일러 서킷을 찾는 알고리즘은 무향 그래프에서와 거의 다르지 않지만,  
+오일러 서킷의 존재 조건이 무향 그래프와 다름  
+
+오일러 서킷의 모든 점에서는 경로가 들어온 횟수와 나간 횟수가 같아야 함  
+방향 그래프에서 각 간선은 둘 중 한 방향으로만 쓸 수 있기 때문에, 각 정점에 들어오는 간선의 수와 나가는 간선의 수가 같아야함  
+나머지 조건들은 무향 그래프와 같음
+
+방향 그래프에서 오일러 트레일의 존재 조건도 마찬가지임  
+a에서는 나가는 간선이 들어오는 간선보다 하나 많고, b는 들어오는 간선이 나가는 간선보다 하나 많고, 다른 모든 정점에서는 나가는 간선과 들어오는 간선의 수가 같아야함
+
+방향 그래프에서 오일러 서킷 혹은 트레일을 찾아내기
+```
+// 유향 그래프의 인접 행렬 adj가 주어질 때 오일러 서킷 혹은 트레일을 계산
+void getEulerCircuit(int here, vector<int>& circuit){
+    for(int there = 0; there < adj.size(); ++there){
+        while(adj[here][there] > 0){
+            adj[here][there]--;
+            getEulerCircuit(there, circuit);
+        }
+    }
+    circuit.push_back(here);
+}
+// 현재 그래프의 오일러 트레일이나 서킷을 반환
+vector<int> getEulerTrailOrCircuit(){
+    vector<int> circuit;
+    // 우선 트레일을 찾아봄 : 시작점이 존재하는 경우
+    for(int i = 0; i < 26; ++i){
+        if(outdegree[i] == indegree[i] + 1){
+            getEulerCircuit(i, circuit);
+            return circuit;
+        }
+    }
+    // 아니면 서킷이니, 간선에 인접한 아무 정점에서나 시작
+    for(int i = 0; i < 26; ++i){
+        if(outdegree[i]){
+            getEulerCircuit(i, circuit);
+            return circuit;
+        }
+    }
+    // 모두 실패한 경우 빈 배열을 반환
+    return circuit;
+}
+```
+
+#### DFS 이론적 배경과 운용
+깊이 우선 탐색을 수행하면 그 과정에서 그래프의 모든 간선을 한 번씩은 만나게 되는데  
+탐색이 따라가는 간선만 모아보면 트리 형태를 띠게 됨  
+이런 트리를 DFS 스패닝 트리라고 부름  
+
+그래프의 DFS스패닝 트리를 생성하고나면 그래프의 모든 간선을 다음 네 가지 중 하나로 분류 가능  
+ - 트리 간선(tree edge) : 스패닝 트리에 포함된 간선
+ - 순방향 간선(forward edge) : 스패닝 트리의 선조에서 자손으로 연결되지만 트리 간선이 아닌 간선
+ - 역방향 간선(back edge) : 스패닝 트리의 자손에서 선조로 연결되는 간선
+ - 교차 간선(cross edge) : 이 세가지 분류를 제외한 나머지 간선
+
+무향 그래프의 모든 간선은 양방향으로 통행 가능하므로, 무향 그래프에는 교차 간선이 있을 수 없음  
+또한 순방향 간선과 역방향 간선의 구분이 없음  
+
+```
+// 그,래프의 인접 리스트 표현
+vector<vector<int>> adj;
+// discovered[i] = i번 정점의 발견 순서
+// finished[i] = dfs(i) 가 종료했으면 1, 아니면 0
+vector<int> discovered, finished;
+// 지금까지 발견한 정점의 수
+int counter;
+void dfs(int here){
+    discovered[here] = counter++;
+    // 모든 인접 정점을 순회
+    for(int i = 0; i < adj[here].size(); ++i){
+        int there = adj[here][i];
+        // 아직 방문한 적 없다면 방문
+        if(discovered[there] == -1){
+            cout << "tree edge" << endl;
+            dfs(there);
+        }            
+        // 만약 there가 here보다 늦게 발견됐으면 there는 here의 후손
+        else if(discovered[here] < discovered[there])
+            cout << "forward edge" << endl;
+        // 만약 dfs(there)가 아직 종료하지 않았으면 there는 here의 선조
+        else if(finished[there] == 0)
+            cout << "back edge" << endl;
+        // 이 외의 경우는 모두 교차 간선
+        else
+            cout << "cross edge" << endl;
+    }
+    finished[here] = 1;
+}
+```
+
+### 3. 그래프 너비 우선 탐색(BFS)
+너비 우선 탐색은 시작점에서 가까운 정점부터 순서대로 방문하는 탐색 알고리즘  
+
+각 정점을 방문할 때마다 모든 인접 정점들을 검사  
+이 중 처음 보는 정점을 발견하면 이 정점을 방문 예정이라고 기록해 둔 뒤, 별도의 위치에 저장  
+인접한 정점을 모두 검사하고 나면, 지금까지 저장한 목록에서 다음 정점을 꺼내서 방문  
+```
+// 그래프의 인접 리스트 표현
+vector<vector<int>> adj;
+// start에서 시작해 그래프를 너비 우선 탐색하고 각 정점의 방문 순서를 반환
+vector<int> bfs(int start){
+    // 각 정점의 방문 여부
+    vector<bool> discovered(adj.size(), false);
+    // 방문할 정점 목록을 유지하는 큐
+    queue<int> q;
+    // 정점의 방문 순서
+    vector<int> order;
+    discovered[start] = true;
+    q.push(start);
+    while(!q.empty()){
+        int here = q.front();
+        q.pop();
+        // here을 방문
+        order.push_back(here);
+        // 모든 인접한 정점을 검사
+        for(int i = 0; i < adj[here].size(); ++i){
+            int there = adj[here][i];
+            // 처음 보는 정점이면 방문 목록에 집어 넣음
+            if(!discovered[there]){
+                q.push[there];
+                discovered[there] = true;
+            }
+        }
+    }
+    return order;
+}
+```
+
+BFS는 발견과 방문이 같지 않음, 따라서 모든 정점은 세 개의 상태를 순서대로 거쳐 가게 됨
+ 1. 아직 발견되지 않은 상태
+ 2. 발견되었지만 아직 방문되지는 않은 상태(큐에 저장된 상태)
+ 3. 방문된 상태
+
+너비 우선 탐색에서 새 정점을 발견하는 데 사용했던 간선들만을 모은 트리를 BFS 스패닝 트리라고 부름  
+
+#### 너비 우선 탐색의 시간 복잡도
+DFS와 다를 것이 없음  
+정점을 한 번씩 방문하며, 정점을 방문할 때마다 인접한 모든 간선을 검사하기 때문  
+따라서, 인접 리스트로 구현된 경우 O(|V| + |E|), 인접 행렬로 구현했을 경우 O(|V|^2)
+
+#### 너비 우선 탐색과 최단 거리
+그래프의 구조에 관련된 다양한 문제를 푸는 데 사용되는 DFS와 달리, BFS는 대개 그래프에서의 최단 경로 문제를 푸는 용도로 사용됨  
+
+BFS 과정에서 간선 (u, v)를 통해 정점 v를 처음 발견해 큐에 넣었다고 할 때,  
+시작점으로부터 v까지의 최단 거리 distance[v]는 시작점으로부터 u까지의 최단 거리 distance[u]에 1을 더한 것  
+
+이 속성의 다른 중요한 의미는 시작점으로부터 다른 모든 정점까지의 최단 경로를 BFS 스패닝 트리 위에서 찾을 수 있음  
+각 정점으로부터 트리의 루트인 시작점으로 가능 경로가 실제 그래프 상에서의 최단 경로임  
+```
+// start에서 시작해 그래프를 BFS하고 시작점부터 각 정점까지의 최단 거리와 BFS 스패닝 트리를 계산
+// distance[i] = start부터 i까지의 최단 거리
+// parent[i] = BFS 스패닝 트리에서의  i의 부모의 번호, 루트인 경우 자신의 번호
+void bfs(int start, vector<int>& distance, vector<int>& parent){
+    distance = vector<int>(adj.size(), -1);
+    parent = vector<int>(adj.size(), -1);
+    // 방문할 정점 목록을 유지하는 큐
+    queue<int> q;
+    distance[start] = 0;
+    parent[start] = start;
+    q.push(start);
+    while(!q.empty()){
+        int here = q.front();
+        q.pop();
+        // here의 모든 인접한 정점을 검사
+        for(int i = 0; i < adj[here].size(); ++i){
+            int there = adj[here][i];
+            // 처음 보는 정점이면 방문 목록에 집어넣음
+            if(distance[there] == -1){
+                q.push(there);
+                distance[there] = distance[here] + 1;
+                parent[there] = here;
+            }
+        }
+    }
+}
+// v로부터 시작점까지의 최단 경로를 계산
+vector<int> shortestPath(int v, const vector<int>& parent){
+    vector<int> path(1, v);
+    while(parent[v] != v){
+        v = parent[v];
+        path.push_back(v);
+    }
+    reverse(path.begin(), path.end());
+    return path;
+}
+```
+
+BFS는 대개 시작점으로부터 다른 정점들까지의 거리를 구하기 위해 사용되기 때문에  
+DFS처럼 모든 정점을 검사하면서 탐색을 수행하는 작업은 잘 하지않음
+
+
 ---
 > 본 내용은 인사이트에서 출판한 '프로그래밍 대회에서 배우는 알고리즘 문제해결전략' 을 읽고 공부하며 작성하였습니다.
