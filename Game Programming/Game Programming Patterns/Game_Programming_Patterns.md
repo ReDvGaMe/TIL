@@ -12,8 +12,8 @@
     - [명령](#CHAPTER-2.-명령)
     - [경량](#CHAPTER-3.-경량)
     - [관찰자](#CHAPTER-4.-관찰자)
-    - 프로토타입
-    - 싱글턴
+    - [프로토타입](#CHAPTER-5.-프로토타입)
+    - [싱글턴](#CHAPTER-6.-싱글턴)
     - 상태
 3. 순서 패턴
     - 이중 버퍼
@@ -519,6 +519,384 @@ World 클래스는 더 이상 지형의 세부 정보와 커플링 되지 않음
 ---
 ### CHAPTER 4. 관찰자  
 ---
+> 객체 사이에 일 대 다의 의존 관계를 정의해두어, 어떤 객체의 상태가 변할 때 그 객체에 의존성을 가진 다른 객체들이 그 변화를 통지 받고 자동으로 업데이트될 수 있게 만듬
+
+#### 4.1 업적 달성
+업적은 종류가 광범위하고 달성할 수 있는 방법도 다양하다 보니 깔끔하게 구현하기 어려움  
+
+특정 기능을 담당하는 코드는 한데 모아두는게 좋음  
+문제는 업적을 여러 게임 플레이 요소에서 발생시킬 수 있다는 점  
+코드 전부와 커플링되지 않고도 업적 코드가 동작하게 하려면?  
+**관찰자 패턴**을 사용하면 됨  
+
+관찰자 패턴을 사용하면 어떤 코드에서 **흥미로운 일**이 생겼을 때 **누가 받는 상관없이** 알림을 보낼 수 있음
+
+'다리에서 떨어지기' 업적을 구현하기 위해 업적 코드를 물리 코드에 넣을 수 있지만, 그러면 코드가 지저분해짐  
+대신에 다음과 같은 방법을 사용
+```
+void Physics::updateEntity(Entity& entity){
+    bool wasOnSurface = entity.isOnSurface();
+    entity.accelerate(GRAVITY);
+    entity.update();
+    if(wasOnSurface && !entity.isOnSurface()){
+        notify(entity, EVENT_START_FALL)
+    }
+}
+```
+이 코드는 'entity가 떨어지기 시작했으니 누군가 알아서 해주세요' 라고 알리는 게 전부  
+업적 시스템은 물리 엔진이 알림을 보낼 때마다 받을 수 있도록 스스로를 등록함  
+업적 시스템은 떨어지는 물체가 캐릭터가 맞는지, 그리고 떨어지기 전에 다리 위에 있었는지를 확인한 뒤 업적을 잠금해제함  
+이러한 과정은 물리 코드를 전혀 몰라도 됨
+
+#### 4.2 작동 원리
+ - 관찰자
+```
+class Observer {
+    public : virtual ~Observer() {}
+    virtual void onNotify(const Entity& entity, Event event) = 0;
+}
+```
+onNotify()에 어떤 매개변수를 넣을지는 알아서 하면 됨  
+보통은 알림을 보내는 객체와 다른 구체적인 정보를 담은 일반적인 '데이터'를 매개변수로 넘김  
+아래의 예제에서는 하드코딩 하였지만, **필요에 맞게 원하는 자료형**을 전달해도 됨
+
+어떤 클래스든 Observer 인터페이스를 구현하기만 하면 관찰자가 될 수 있음
+```
+class Achievements : public Observer{
+public:
+    virtual void onNotify(const Entity& entity, Event event){
+        switch(event){
+        case EVENT_ENTITY_FELL:
+            if(entity.isHero() && heroIsOnBridge_){
+                unlock(ACHIEVEMENT_FELL_OFF_BRIDGE);
+            }
+            break;
+            // 그 외 다른 이벤트를 처리
+            // heroIsOnBridge_ 값을 업데이트
+        }
+    }
+
+private:
+    void unlock(Achievement achievment){
+        // 업적이 잠겨 있다면 잠금해제
+    }
+    bool heroIsOnBridge_;
+};
+```
+
+ - 대상
+알림 메서드는 **관찰당하는 객체**가 호출함, 이런 객체를 **대상(subject)** 이라고 부름  
+대상이 수행하는 일 중 하나는 알림을 기다리는 관찰자 목록을 가지고 있는 것  
+```
+class Subject{
+public:
+    void addObserver(Observer* observer){
+        // 배열에 추가
+    }
+    void removeObserver(Observer* observer){
+        // 배열에서 제거
+    }
+private:
+    Observer* observers_[MAX_OBSERVERS];
+    int numObservers_;
+};
+```
+
+여기서 중요한 것은 **관찰자 목록을 밖에서 변경할 수 있도록 public으로** 열어놓은 점  
+
+이를 통해 누가 알림을 받을 것인지를 제어할 수 있음  
+대상은 관찰자와 상호작용하지만, 서로 커플링되어있지 않음, 이것이 관찰자 패턴의 장점  
+
+대상이 관찰자를 여러 개 등록할 수 있게 하면 관찰자들이 각자 독립적으로 다뤄지는 걸 보장할 수 있음  
+```
+class Subject{
+protected:
+    void notify(const Entity& entity, Event event){
+        for(int i = 0; i < numObservers_; i++){
+            observers_[i]->onNotify(entity, event);
+        }
+    }
+    // 그 외
+};
+```
+
+ - 물리 관찰
+남은 작업은 물리 엔진에 훅을 걸어 알림을 보낼 수 있게 하는 일과 업적 시스템에서 알림을 받을 수 있도록 스스로를 등록하게 하는 일  
+```
+class Physics : public Subject{
+public:
+    void updateEntity(Entity& entity);
+};
+```
+
+이렇게 하면 Subject 클래스의 notify() 메서드를 protected로 만들 수 있음  
+Subject를 상속받은 Physics 클래스는 notify()를 통해서 알림을 보낼 수 있지만, 밖에서는 notify()에 접근할 수 없음  
+반면, addObserver()와 removeObserver()는 public이기 때문에 물리 시스템에 접근할 수만 있다면 물리 시스템을 관찰할 수 있음  
+
+![Observer_01](https://user-images.githubusercontent.com/32252062/69865748-70f2ea00-12e5-11ea-9f40-37c03e2b9021.png)
+(그림 4-2) 대상과 대상에서 관리하고 있는 관찰자 레퍼런스 목록
+
+#### 4.3 속도
+관찰자 패턴을 제대로 이해하지 못한다면 CPU를 낭비할 것으로 보일 수 있음  
+관찰자 패턴은 특히 '이벤트', '메시지', '데이터 바인딩' 등과 주로 사용되는데, 이런 시스템 중 일부는 알림이 있을 때마다 동적 할당 하거나 큐잉하기 때문에 실제로 느릴 수 있음  
+
+하지만 관찰자 패턴은 전혀 느리지 않음  
+정적 호출보다는 약간 느리지만, 진짜 성능에 민감한 코드가 아니라면 문제가 되지 않음  
+게다가 관찰자 패턴은 성능에 민감하지 않은 곳에 가장 잘 맞기 때문에, 동적 디스패치를 써도 크게 상관없음  
+
+느린 것보다 주의해야 할 점은 관찰자 패턴이 동기적이라는 점임  
+대상이 관찰자 메서드를 직접 호출하기 때문에 모든 관찰자가 알림 메서드를 반환하기 전에는 다음 작업을 진행할 수 없음  
+관찰자 중 하나라도 느리면 대상이 블록될 수 있음  
+
+이벤트에 동기적으로 반응한다면 최대한 빨리 작업을 끝내고 제어권을 다시 넘겨줘서 UI가 멈추지 않게 해야함  
+오래 걸리는 작업은 다른 스레드로 넘기거나 작업 큐를 활용해야함  
+
+관찰자를 **멀티스레드, 락(lock)과 함께 사용할 때는 정말 조심**해야함  
+어떤 관찰자가 **대상의 락을 물고 있다면 게임 전체가 교착상태**에 빠질 수 있기 때문  
+엔진에서 멀티스레드를 많이 쓰고 있다면, **이벤트 큐**를 이용해 **비동기적**으로 상호작용하는 게 더 좋을 수 있음
+
+#### 4.4 동적 할당
+예제에서는 고정 배열을 사용하였으나, 실제 게임 코드라면 관찰자가 추가, 삭제 될 때 동적 할당을 사용했을 것  
+물론 실제로는 관찰자가 추가될 때만 메모리를 할당하고, 알림을 보낼 때는 메서드를 호출할 뿐 동적 할당은 전혀 하지 않음  
+따라서 게임 코드가 실행될 때 처음 관찰자를 등록해놓은 뒤에 건드리지 않는다면 메모리 할당은 거의 일어나지 않음  
+
+ - 관찰자 연결리스트  
+ 
+ ![image](https://user-images.githubusercontent.com/32252062/70036722-ad318d80-15f8-11ea-8369-af95e8ae2de4.png)
+ (그림 4-3) 대상은 관찰자 연결 리스트를 포인터로 가리킴
+
+먼저 Subject 클래스에 배열 대신 관찰자 연결 리스트의 첫째 노드를 가리키는 포인터를 둠
+```
+class Subject{
+    Subject() : head_(NULL) {}
+
+    // 메서드들
+private:
+    Observer* head_;
+};
+```
+
+이후 Observer에 연결 리스트의 다음 관찰자를 가리키는 포인터를 추가
+```
+class Observer{
+    friend class Subject;
+
+public:
+    Observer() : next_(NULL) {}
+
+    // 그 외
+private:
+    Observer* next_;
+};
+```
+Subject를 friend 클래스로 정의  
+Subject에는 관찰자를 추가, 삭제하기 위한 API가 있지만 Subject가 관리해야 할 관찰자 목록은 Observer 클래스 안에 있음  
+Subject가 이들 목록에 접근할 수 있게 만드는 가장 간단한 방법은 Observer에서 Subject를 friend클래스로 만드는 것  
+(friend로 하면 Subject에서 Observer의 private 영역까지 접근 가능)  
+
+새로운 관찰자를 연결 리스트에 추가하기만 하면 대상에 등록할 수 있음  
+```
+void Subject::addObserver(Observer* observer){
+    observer->next_ = head_;
+    head_ = observer;
+}
+```
+
+연결 리스트를 뒤쪽으로 추가하면 관찰자를 추가할 때마다 리스트에서 마지막 노드를 찾거나 마지막 노드를 따로 tail_ 포인터로 관리해야하기 때문에 좀 더 복잡해짐  
+
+관찰자를 앞에서 추가하면 구현이 간단하나, 전체 관찰자에 알림을 보낼 때는 **맨 나중에** 추가된 관찰자부터 **맨 먼저** 알림을 받는다는 부작용이 있음  
+원칙적으로는 같은 대상을 관찰하는 관찰자끼리는 알림 순서로 인한 의존 관계가 없게 만들어야함  
+순서 때문에 문제가 있다면 관찰자들 사이에 커플링이 있다는 이야기이고, 이는 나중에 문제가 될 수 있음  
+
+```
+void Subject::removeObserver(Observer* observer){
+    if(head_ == observer){
+        head_ = observer->next_;
+        observer->next_ = NULL;
+        return;
+    }
+
+    Observer* current = head_;
+    while(current != NULL){
+        if(current->next_) == observer){
+            current->next_ = observer->next_;
+            observer->next_ = NULL;
+            return;
+        }
+        current = current->next_;
+    }
+}
+```
+노드를 제거하려면 연결 리스트를 순회해야함(단순 연결 리스트이기 때문에)  
+만약에 실제 코드였다면 상수 시간에 제거가 가능한 이중 연결 리스트를 사용할 것  
+
+```
+void Subject::notify(const Entity& entity, Event event){
+    Observer* observer = head_;
+    while(observer != NULL){
+        observer->onNotify(entity, event);
+        observer = observer->next_;
+    }
+}
+```
+알림을 보내는 것은 목록을 따라가면 됨  
+
+관찰자 객체 그 자체를 리스트 노드로 활용하기 때문에, 관찰자는 한 번에 한 대상만 관찰할 수 있음  
+한 대상에 여러 관찰자가 붙는 경우가 훨씬 
+
+ - 리스트 노드 풀  
+대상이 관찰자 연결 리스트를 들고 있으나, 노드는 관찰자 객체가 아님  
+대신 따로 간단한 노드를 만들어, 관찰자와 다음 노드를 포인터로 가리키게 함  
+![image](https://user-images.githubusercontent.com/32252062/70036867-e4a03a00-15f8-11ea-84a1-d2ff59a4191b.png)
+(그림 4-4) 대상과 관찰자를 가리키는 노드들의 연결 리스트
+
+같은 관찰자를 여러 노드에서 가리킬 수 있다는 것은, 같은 관찰자를 동시에 여러 대상에 추가할 수 있따는 뜻  
+동적 할당을 피하는 방법은, 모든 노드가 같은 자료형에 같은 크기니 객체 풀(19장)에 미리 할당하면 됨  
+이러면 고정된 크기의 목록 노드를 확보할 수 있어서 필요할 때 마다 동적 메모리 할당 없이 재사용 가능  
+
+#### 4.5 남은 문제점들
+
+ - 대상과 관찰자 제거  
+ 관찰자를 부주의하게 삭제하면 대상에 있는 포인터가 이미 삭제된 객체를 가리킬 수 있음  
+ 대상이 삭제되면 더 이상 알림을 받을 수 없는데도 관찰자는 그것을 모르고 알림을 기다릴 수 있음  
+ 이런 현상을 막으려면 대상이 삭제되기 직전에 마지막으로 '사망'알림을 보내면 됨  
+ 
+     알림을 받은 관찰자는 필요한 작업을 알아서 하면 됨  
+ 관찰자는 대상을 삭제하는 것보다 어려움  
+ 대상이 관찰자를 포인터로 알고 있기 때문  
+
+    가장 쉬운 방법은 관찰자가 삭제될 때 스스로를 등록 취소 하는 것  
+ 관찰자에서 보통 관찰 중인 대상을 알고 있으므로 소멸자에서 대상의 removeObserver()만 호출하면 됨
+
+ - 관찰자 패턴의 문제  
+ 프로그램이 제대로 동작하지 않을 때 버그가 여러 관찰자에 퍼져 있따면 상호 흐름을 추론하기가 훨씬 어려워짐  
+ 코드가 명시적으로 커플링되어 있으면 어떤 메서드가 호출되는지만 보면 되지만, 관찰자 목록을 통해 코드가 커플링 되어있다면 실제로 어떤 관찰자가 알림을 받는지는 **런타임에서** 확인해보는 수밖에 없음  
+ 이 말은 프로그램에서 코드가 상호작용하는지를 정적으로는 알 수 없고, 명령 실행 과정을 동적으로 추론해야함  
+
+    이러한 문제를 해결하려면 코드를 이해하기 위해 양쪽 코드의 상호작용을 같이 확인해야 할 일이 많다면, 관찰자 패턴 대신 두 코드를 명시적으로 연결하는게 나음  
+
+    **관찰자 패턴은 서로 연관 없는 코드 덩어리들이 하나의 큰 덩어리가 되지 않으면서 서로 상호작용하기에 좋은 방법이지,  
+    하나의 기능을 구현하기 위한 코드 덩어리 안에서는 그다지 유용하지 않음**
+ 
+---
+---
+### CHAPTER 5. 프로토타입
+---
+#### 스포너 예제  
+
+한 가지 스포너는 한 가지 몬스터 인스턴스만 만든다고 할 때,  
+게임에 나오는 모든 몬스터를 지원하기 위해서는 몬스터 클래스마다 스포너 클래스를 만들어야함  
+이렇게 하면 스포너 클래스 상속 구조가 몬스터 클래스 상속 구조를 따라가게 됨
+![prototype_01](https://user-images.githubusercontent.com/32252062/70121319-aca8fd80-16b1-11ea-9e6d-de02645740eb.png)
+(그림 5-1) 동일한 클래스 상속 구조
+
+이런 걸 프로토타입 패턴으로 해결할 수 있음  
+핵심은 **어떤 객체가 자기와 비슷한 객체를 스폰할 수 있다는 점**
+어떤 몬스터 객체든지 자신과 비슷한 몬스터 객체를 만드는 **원형(prototypal) 객체**로 사용할 수 있음
+
+이를 구현하기 위해, 상위 클래스인 Monster에 **추상 메서드** clone()을 추가
+```
+class Monster{
+public:
+    virtual ~Monster() {}
+    virtual Monster* clone() = 0;
+
+    // 그 외
+};
+```
+
+Monster 하위 클래스에서는 자신과 자료형과 상태가 같은 새로운 객체를 반환하도록 clone()을 구현  
+예를 들어, 유령 객체라면 다음과 같음
+```
+class Ghost : public Monster{
+public:
+    Ghost(int health, int speed)
+    : health_(health),
+      speed_(speed){
+      }
+    virtual Monster* clone(){
+        return new Ghost(health_, speed_);
+    }
+private:
+    int health_;
+    int speed_;
+};
+```
+Monster를 상속받는 모든 클래스에 clone 메서드가 있다면, 스포너 클래스를 종류별로 만들 필요 없이 하나만 만들면 됨
+
+```
+class Spawner{
+public:
+    Spawner(Monster* prototype) : prototype_(prototype) {}
+    Monster* spawnMonster(){
+        return prototype_->clone();
+    }
+private:
+    Monster* prototype_;
+}
+```
+Spawner 클래스 내부에는 Monster 객체가 숨어 있어 Monster 객체를 도장 찍듯 만들어내는 스포너 역할만 함  
+
+![prototype_02](https://user-images.githubusercontent.com/32252062/70123101-4b832900-16b5-11ea-8700-3c1433e63833.png)
+(그림 5-2) 프로토타입을 품고 있는 스포너
+
+유령 스포너를 만들려면 원형으로 사용할 유령 인스턴스를 만든 후에 스포너에 전달
+```
+Monster* ghostPrototype = new Ghost(15, 3);
+Spawner* ghostSpawner = new Spawner(ghostPrototype);
+```
+
+프로토타입 패턴의 **좋은 점**은 프로토타입의 클래스뿐만 아니라 **상태도 같이 복제**한다는 점  
+즉, 원형으로 사용할 유령 객체를 잘 설정하면 빠른 유령, 약한 유령, 느린 유령용 스포너 같은 것도 쉽게 만들 수 있음  
+
+다만 위의 예제는 현실적이지 않음(요즘은 몬스터마다 클래스를 따로 만들지 않음)  
+상속 구조가 복잡하면 유지보수하기 힘듦  
+따라서 요즘은 개체 종류별로 클래스를 만들기보다는 컴포넌트(14장)나 타입객체(13장)로 모델링하는 것을 선호
+
+#### 스폰 함수
+```
+Monster* spawnGhost(){
+    return new Ghost();
+}
+```
+
+```
+typedef Monster* (*SpawnCallback)();
+
+class Spawner{
+public:
+    Spawner(SpawnCallback sapwn) : spawn_(spawn) {}
+    Monster* spawnMonster() { return spawn_(); }
+
+private:
+    SpawnCallback spawn_;
+};
+```
+
+유령을 스폰하는 객체는 다음과 같이 만듬  
+`Spawner* ghostSpawner = new Spawner(spawnGhost);`
+
+몬스터 클래스를 템플릿 타입 매개변수로 전달하면 특정 몬스터 클래스를 하드코딩 안해도 됨  
+
+```
+class Spawner{
+public:
+    virtual ~Spawner() {}
+    virtual Monster* spawnMonster() = 0;
+};
+
+template <class T>
+class SpawnFor : public Spawner{
+public:
+    virtual Monster* spawnMonster() { return new T(); }
+};
+```
+
+---
+---
+### CHAPTER 6. 싱글턴
+---
+
 
 
 
