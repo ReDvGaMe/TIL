@@ -11,11 +11,11 @@
 
 ---
 
-### 1. 페이지 교체 방법
+## 1. 페이지 교체 방법
 
 ---
 
-#### OPT (Optimal policy)
+### OPT (Optimal policy)
 앞으로 가장 오랫동안 사용하지 않을 페이지를 교체하는 방법  
 
 성능은 가장 좋으나, 각 페이지의 호출 순서와 참조 상황을 미리 예측해야하기 때문에 실현 가능성이 희박
@@ -29,7 +29,7 @@
 
 ---
 
-#### FIFO (First-in, first-out)
+### FIFO (First-in, first-out)
 페이지 교체시 물리적 메모리에 가장 먼저 올라온 페이지를 우선적으로 교체하는 방법  
 
 페이지의 향후 참조 가능성을 고려하지 않고, 물리적 메모리에 들어온 순서대로 교체 대상을 선정하기 때문에 비효율적인 상황이 발생할 수 있음  
@@ -47,7 +47,7 @@
 
 ---
 
-#### LRU (Least Recently Used)
+### LRU (Least Recently Used)
 최근에 가장 오랫동안 사용하지 않은 페이지를 교체하는 방법  
 (마지막 참조시점이 가장 오래된 페이지 교체)  
 
@@ -67,7 +67,7 @@
 
 ---
 
-#### LFU (Least Frequently Used)
+### LFU (Least Frequently Used)
 사용 빈도가 가장 적은 페이지를 교체하는 방법  
 
 LRU보다 오랜시간 동안의 참조 기록을 반영할 수 있다는 장점  
@@ -83,7 +83,7 @@ LRU보다 오랜시간 동안의 참조 기록을 반영할 수 있다는 장점
 
 ---
 
-#### 클럭 알고리즘
+### 클럭 알고리즘
 Not Recently Used (NRU), Not Used Recently(NUR)로 불리기도 함  
 
 LRU와 비슷한 방법, 최근에 사용하지 않은 페이지를 교체하는 방법  
@@ -106,7 +106,7 @@ LRU는 가장 오래전에 참조된 페이지를 교체하는 것에 비해, NU
 
 ---
 
-### 2. 프로세스 스케줄링
+## 2. 프로세스 스케줄링
 
 ---
 
@@ -138,7 +138,7 @@ LRU는 가장 오래전에 참조된 페이지를 교체하는 것에 비해, NU
 
 ---
 
-비선점 스케줄링
+### 비선점 스케줄링
 
 ---
 
@@ -155,7 +155,7 @@ SJF의 단점을 보완한 방법으로 우선순위 알고리즘으로 계산�
 
 ---
 
-선점 스케줄링
+### 선점 스케줄링
 
 ---
 
@@ -183,11 +183,11 @@ Time Sharing System과 같음
 
 ---
 
-### 3. 디스크 스케줄링
+## 3. 디스크 스케줄링
 
 ---
 
-#### FIFO(First-in, first-out)
+### FIFO(First-in, first-out)
 본질적으로는 공평해보이나 빠른 서비스를 제공하지 못함  
 
  - 장점 : 알고리즘이 단순, 공평하게 요청 처리 
@@ -196,7 +196,7 @@ Time Sharing System과 같음
 `queue : 98, 183, 37, 122, 14, 124, 65, 67, current head starts at : 53`
 ![99AB873C5BDF03AF03](https://user-images.githubusercontent.com/32252062/67928868-674f6700-fbff-11e9-8bd2-fcffe7dae3f7.png)
 
-#### SSTF(Shortest Service Time First)
+### SSTF(Shortest Service Time First)
 현재 헤드에서 가장 가까운 트랙의 요청을 먼저 처리  
 즉, 현재 헤드셋을 처리하고, 다음 요청 중에 이동거리가 가장 적은거리에 있는 트랙을 처리  
 
@@ -206,7 +206,7 @@ Time Sharing System과 같음
 `queue : 98, 183, 37, 122, 14, 124, 65, 67, current head starts at : 53`
 ![99F8B13C5BDF03AF0B](https://user-images.githubusercontent.com/32252062/67928885-6fa7a200-fbff-11e9-9529-10eccd70a98f.png)
 
-#### SCAN
+### SCAN
 헤드셋의 진행방향에 있는 요청을 처리하고, 다시 반대 방향으로 틀어 반대방향에 있는 요청들을 처리  
 엘레베이터 기법이라고도 함  
 
@@ -216,7 +216,7 @@ Time Sharing System과 같음
 `queue : 98, 183, 37, 122, 14, 124, 65, 67, current head starts at : 53`
 ![image](https://user-images.githubusercontent.com/32252062/67929116-eba1ea00-fbff-11e9-8646-880099aada68.png)
 
-#### C-SCAN
+### C-SCAN
 항상 한쪽 방향에서 반대방향으로 진행하며 트랙의 요청을 처리  
 SCAN의 변형된 형태로 조금 더 시간을 균등하게 배분 가능
 
@@ -226,7 +226,7 @@ SCAN의 변형된 형태로 조금 더 시간을 균등하게 배분 가능
 `queue : 98, 183, 37, 122, 14, 124, 65, 67, current head starts at : 53`
 ![image](https://user-images.githubusercontent.com/32252062/67929263-3f143800-fc00-11e9-8a6e-cff3e5ec758c.png)
 
-#### LOOK, C-LOOK
+### LOOK, C-LOOK
 SCAN과 C-SCAN을 보완하기 위한 스케줄링 기법  
 요청 진행방향에서 더 이상 요청이 없다면, 끝단까지 가지 않고 처리
 
@@ -241,7 +241,7 @@ C-LOOK
 `queue : 98, 183, 37, 122, 14, 124, 65, 67, current head starts at : 53`
 ![image](https://user-images.githubusercontent.com/32252062/67929397-91edef80-fc00-11e9-934f-dfe059c20a6b.png)
 
-#### N-step SCAN
+### N-step SCAN
 SCAN 기법을 기초로 두며, 시작하기 전 대기하고 있는 요청들을 우선적으로 처리하고,  
 처리하는 과정 중에 요청이 들어오는 것은 이후에 모아서, 반대방향으로 진행할 때 서비스  
 
@@ -249,7 +249,7 @@ SCAN 기법을 기초로 두며, 시작하기 전 대기하고 있는 요청들�
  - SSTF, SCAN보다 응답시간의 편차가 적음  
  - 특정 방향에서의 많은 요청으로 인해 반대방향에서 들어온 요청들에 대한 기아현상을 방지할 수 있음
 
-#### SLTF(Shorteset Latency Time First)
+### SLTF(Shorteset Latency Time First)
 회전 지연 시간을 최적화 하기 위한 대표적인 기법  
 디스크 헤드가 특정 실린더에 도착하면 그 실린더 내의 여러 트랙에 대한 요청을 검사한 후  
 회전 지연시간이 가장 짧은 요청부터 서비스  
