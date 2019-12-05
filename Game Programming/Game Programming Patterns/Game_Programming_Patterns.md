@@ -896,6 +896,125 @@ public:
 ---
 ### CHAPTER 6. 싱글턴
 ---
+#### 6.1 싱글턴 패턴  
+- 오직 한 개의 인스턴스만 갖도록 보장  
+인스턴스가 여러 개면 제대로 작동하지 않는 상황이 종종 있음  
+이를 싱글턴으로 만들면 클래스가 인스턴스를 하나만 가지도록 컴파일 단계에서 강제할 수 있음
+
+- 전역 접근점을 제공  
+싱글턴은 그 인스턴스를 전역에서 접근할 수 있는 메서드를 제공  
+이를 통해서, 누구든지 어디서든지 우리가 만든 인스턴스에 접근 가능  
+```
+class FileSystem{
+public:
+    static FileSystem& instance() {
+        // 게으른 초기화
+        if(instance_ == NULL){
+            instance_ = new FileSystem();
+        }
+        return *instance_;
+    }
+
+private:
+    FileSystem() {}
+    static FileSystem* instance_;
+};
+```
+instance_ 정적 멤버 변수는 클래스 인스턴스를 저장  
+생성자가 private이기 때문에 밖에서는 생성할 수 없음  
+public에 있는 instance() 정적 메서드는 코드 어디에서나 싱글천 인스턴스에 접근할 수 있게 하고, 싱글턴을 실제로 필요로 할 때까지 인스턴스 초기화를 미루는 역할도 함  
+ 
+```
+class FileSystem{
+public:
+    static FileSystem& instance(){
+        static FileSystem *instance = new FileSystem();
+        return *intance;
+    }
+
+priavte:
+    FileSystem() {}
+}
+```
+C++ 11에서는 정적 지역 변수 초기화 코드가 멀티스레드 환경에서도 딱 한 번 실행되어야 하기 때문에 스레드 안전
+
+#### 6.2 싱글턴을 왜 사용하는가?
+- 한 번도 사용하지 않는다면 아예 인스턴스를 생성하지 않음  
+싱글턴은 처음 사용될 대 초기화만 되므로, 게임 내에서 전혀 사용되지 않으면 아예 초기화되지 않음
+
+- 런타임에 초기화됨  
+정적 멤버 변수는 자동 초기화되는 문제가 있음  
+즉, 컴파일러는 main 함수를 호출하기 전에 정적 변수를 초기화하기 때문에 프로그램이 실행된 다음에야 알 수 있는(파일로 읽어 들인 설정 값 같은) 정보를 활용할 수 없음  
+
+    게으른 초기화는 이런 문제를 해결  
+    싱글턴은 최대한 늦게 초기화되기 때문에, 순환 의존만 없다면, 초기화할 때 다른 싱글턴을 참조해도됨
+
+- 싱글턴을 상속할 수 있음  
+파일 시스템 래퍼가 크로스 플랫폼을 지원해야 한다면 추상 인터페이스를 만든 뒤,  
+플랫폼마다 구체 클래스를 만들면 됨
+```
+class FileSystem{
+public:
+    virtual ~FileSystem() {}
+    virtual char* readFile(char* path) = 0;
+    virtual void writeFile(char* path, char* contents) = 0;
+};
+```
+
+플랫폼별로 하위 클래스 정의
+```
+class PS3Filesystem : public FileSystem{
+public:
+    virtual char* readFile(char* path){
+        // 소니의 파일 IO API를 사용
+    }
+    virtual void writeFile(char* path, char* contents){
+        // 소니의 파일 IO API를 사용
+    }
+};
+
+class WiiFilesystem : public FileSystem{
+public:
+    virtual char* readFile(char* path){
+        // 닌텐도의 파일 IO API를 사용
+    }
+    virtual void writeFile(char* path, char* contents){
+        // 닌텐도의 파일 IO API를 사용
+    }
+};
+```
+
+FileSystme클래스를 싱글턴으로 만듬
+```
+class FileSystem{
+public:
+    static FileSystem& instance();
+
+    virtual ~FileSystem() {}
+    virtual char* readFile(char* path) = 0;
+    virtual void writeFile(char* path, char* contents) = 0;
+
+protected:
+    FileSystem() {}
+};
+```
+
+핵심은 인스턴스를 생성하는 부분
+```
+FileSystme& FileSystme::instance() {
+#if PLATFORM == PLAYSTATION3
+    static FileSystme = *instance = new PS3FileSystem();
+#elif PLATFORM == WII
+    static FileSystme = *instance = new WiiFileSystem();
+#endif
+    return *instance;        
+}
+```
+
+#### 6.3 싱글턴이 왜 문제일까?
+짧게 놓고 보면 싱글턴 패턴에는 큰 문제가 없음  
+하지만 다른 단기적인 설계 결정들과 마찬가지로 길게 놓고 보면 비용을 지불함  
+꼭 필요하지 않은 곳에 싱글턴을 적용하면 다음과 같은 문제에 부딪힘
 
 
 
