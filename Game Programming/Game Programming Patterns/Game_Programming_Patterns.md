@@ -14,7 +14,7 @@
     - [관찰자](#CHAPTER-4.-관찰자)
     - [프로토타입](#CHAPTER-5.-프로토타입)
     - [싱글턴](#CHAPTER-6.-싱글턴)
-    - 상태
+    - [상태](#CHAPTER-7.-상태)
 3. 순서 패턴
     - 이중 버퍼
     - 게임 루프
@@ -1102,6 +1102,250 @@ assert()는 인수 값을 평가하여 값이 참이면 아무것도 하지 않�
 싱글턴을 대체할 패턴  
 하위 클래스 샌드박스 패턴(12장) : 클래스가 같은 인스턴스들이 공용 상태를 전역으로 만들지 않고도 접근할 수 있는 방법  
 서비스 중개자 패턴(16장) : 객체를 전역으로 접근할 수 있게 하되, 객체를 훨씬 유연하게 설정할 수 있는 방법을 제공
+
+---
+---
+### CHAPTER 7. 상태  
+---
+> 객체의 내부 상태에 따라 스스로 행동을 변경할 수 있게 허가하는 패턴, 이렇게 하면 객체는 마치 자신의 클래스를 바꾸는 것처럼 보임
+
+간단한 횡스크롤 플랫포머 게임 만들기
+```
+void Heroine::handleInput(Input input)
+{
+  if (input == PRESS_B)
+  {
+    if (!isJumping_ && !isDucking_)
+    {
+      // Jump...
+    }
+  }
+  else if (input == PRESS_DOWN)
+  {
+    if (!isJumping_)
+    {
+      isDucking_ = true;
+      setGraphics(IMAGE_DUCK);
+    }
+    else
+    {
+      isJumping_ = false;
+      setGraphics(IMAGE_DIVE);
+    }
+  }
+  else if (input == RELEASE_DOWN)
+  {
+    if (isDucking_)
+    {
+      // Stand...
+    }
+  }
+}
+```
+
+무언가를 검사하려면 계속해서 플래스 변수를 만들어야 함  
+이렇게되면 조금만 건드리면 망가짐  
+
+![state_01](https://user-images.githubusercontent.com/32252062/70800882-ba1c6100-1df0-11ea-93a1-76ff390969d7.png)
+(그림 7-1) 상태 기계를 그린 플로차트
+
+위는 **유한 상태 기계(FSM)**임, FSM은 컴퓨터 과학 분야 중의 하나인 **오토마타 이론**에서 나옴  
+ - 가질수 있는 **'상태'**가 한정
+ - 한 번에 **'한 가지'** 상태만 될 수 있음
+ - '입력'이나 '이벤트'가 **기계에 전달**됨
+ - 각 상태에는 **입력에 따라 다음 상태로 바뀌는 '전이'**가 있음
+
+#### 열거형과 다중 선택문  
+여러 플래그 변수 중에서 하나만 참일 때가 많다면 **열거형(enum)**이 필요  
+
+이전에는 입력에 따라 먼ㅁ저 분기한 뒤에 상태에 따라 분기  
+따라서 하나의 버튼 입력에 대한 코드는 모아둘 수 있었으나, 하나의 상태에 대한 코드는 흩어져 있었음  
+상태 관련 코드를 한곳에 모아두기 위해 먼저 상태에 따라 분기  
+```
+void Heroine::handleInput(Input input)
+{
+  switch (state_)
+  {
+    case STATE_STANDING:
+      if (input == PRESS_B)
+      {
+        state_ = STATE_JUMPING;
+        yVelocity_ = JUMP_VELOCITY;
+        setGraphics(IMAGE_JUMP);
+      }
+      else if (input == PRESS_DOWN)
+      {
+        state_ = STATE_DUCKING;
+        setGraphics(IMAGE_DUCK);
+      }
+      break;
+
+    case STATE_JUMPING:
+      if (input == PRESS_DOWN)
+      {
+        state_ = STATE_DIVING;
+        setGraphics(IMAGE_DIVE);
+      }
+      break;
+
+    case STATE_DUCKING:
+      if (input == RELEASE_DOWN)
+      {
+        state_ = STATE_STANDING;
+        setGraphics(IMAGE_STAND);
+      }
+      break;
+  }
+}
+```
+
+열거형은 상태 기계를 구현하는 가장 간단한 방법이고, 이 정도만으로 충분할 때도 꽤 있음  
+
+열거형만으로 부족할 수도 있음  
+엎드려서 기를 모아 특수공격을 한다고 가정하면, 엎드려서 기를 모으는 시간을 기록해야함  
+이를 위해 Heroin에 chargeTime_필드를 추가  
+
+```
+void Heroine::update()
+{
+  if (state_ == STATE_DUCKING)
+  {
+    chargeTime_++;
+    if (chargeTime_ > MAX_CHARGE)
+    {
+      superBomb();
+    }
+  }
+}
+```
+엎드릴 때마다 시간 초기화
+```
+void Heroine::handleInput(Input input)
+{
+  switch (state_)
+  {
+    case STATE_STANDING:
+      if (input == PRESS_DOWN)
+      {
+        state_ = STATE_DUCKING;
+        chargeTime_ = 0;
+        setGraphics(IMAGE_DUCK);
+      }
+      // Handle other inputs...
+      break;
+
+      // Other states...
+  }
+}
+```
+기 모으기 공격을 추가하기 위해 함수 두 개를 수정하고 엎드리기 상태에서만 의미 있는 chargeTime_필드를 Heroine에 추가했어야함  
+이보다는 모든 코드와 데이터를 한 곳에 모아둘 수 있는게 나음  
+
+#### 상태패턴
+모든 분기문을 동적 디스패치(가상 함수)로 바꾸려는 사람이 있지만, 때로는 **if문**만으로도 충분함
+
+#### 상태 인터페이스
+상태에 의존하는 모든 코드, 즉, 다중 선택문에 있던 동작을 인터페이스의 가상 메서드로 만듬  
+```
+class HeroineState
+{
+public:
+  virtual ~HeroineState() {}
+  virtual void handleInput(Heroine& heroine, Input input) {}
+  virtual void update(Heroine& heroine) {}
+};
+```
+
+#### 상태별 클래스 만들기
+상태별로 인터페이스를 구현하는 클래스도 정의  
+메서드에는 정해진 상태가 되었을 때 주인공이 어떤 행동을 할지를 정의  
+다중 선택문에 있떤 case별로 클래스를 만들어 코드를 옮기면 됨
+```
+class DuckingState : public HeroineState
+{
+public:
+  DuckingState()
+  : chargeTime_(0)
+  {}
+
+  virtual void handleInput(Heroine& heroine, Input input) {
+    if (input == RELEASE_DOWN)
+    {
+      // Change to standing state...
+      heroine.setGraphics(IMAGE_STAND);
+    }
+  }
+
+  virtual void update(Heroine& heroine) {
+    chargeTime_++;
+    if (chargeTime_ > MAX_CHARGE)
+    {
+      heroine.superBomb();
+    }
+  }
+
+private:
+  int chargeTime_;
+};
+```
+chargeTime_ 변수를 Heroin에서 DuckingState 클래스로 옮겨서 엎드리기 상태에서만 의미 있따는 점을 객체 모델링을 통해서 분명하게 보여줌  
+
+#### 동작을 상태에 위임  
+Heroin 클레스에 자신의 현재 상태 객체 포인터를 추가해, 거대한 다중 선택문은 제거하고 대신 상태 객체에 위임  
+
+```
+class Heroine
+{
+public:
+  virtual void handleInput(Input input)
+  {
+    state_->handleInput(*this, input);
+  }
+
+  virtual void update()
+  {
+    state_->update(*this);
+  }
+
+  // Other methods...
+
+private:
+  HeroineState* state_;
+};
+```
+상태를 바꾸려면 state_ 포인터에 HeroineState를 상속받는 다른 객체를 할당하기만하면 됨
+
+#### 7.5 상태 객체는 어디에 둬야 할까?
+상태 패턴은 클래스를 쓰기 때문에 포인터에 저장할 실제 인스턴스가 필요  
+이를 위해 두 가지 방법이 있음  
+
+#### 정적 객체
+상태 객체에 필드가 따로 없다면 가상 메서드 호출에 필요한 vtable 포인터만있는 셈  
+이럴 경우 모든 인스턴스가 같기 때문에 인스턴스는 하나만 있으면 됨  
+정적 인스턴스는 원하는 곳에 두면 됨  
+```
+class HeroineState
+{
+public:
+  static StandingState standing;
+  static DuckingState ducking;
+  static JumpingState jumping;
+  static DivingState diving;
+
+  // Other code...
+};
+```
+각각의 정적 변수가 게임에서 사용하는 상태 인스턴스임  
+서 있는 상태에서 점프하게 하려면 다음과 같이 하면 됨  
+```
+if (input == PRESS_B)
+{
+  heroine.state_ = &HeroineState::jumping;
+  heroine.setGraphics(IMAGE_JUMP);
+}
+```
+
+#### 상태 객체 만들기
 
 
 ---
