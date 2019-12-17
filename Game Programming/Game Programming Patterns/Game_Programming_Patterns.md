@@ -1346,6 +1346,38 @@ if (input == PRESS_B)
 ```
 
 #### 상태 객체 만들기
+정적 객체만으로는 캐릭터가 하나라면 가능하지만, 한 화면에 두 개 이상의 캐릭터가 보일 경우에는 문제가 됨  
+이럴 때는 전이할 때마다 상태 객체를 만들어서 FSM이 상태별로 인스턴스를 갖게 만들 수 있음  
+
+새로 상태를 할당했기 때문에 이전 상태를 해제해야하는데, 삭제할 때 this를 스스로 지우지 않도록 주의  
+
+```
+void Heroine::handleInput(Input input)
+{
+  HeroineState* state = state_->handleInput(*this, input);
+  if (state != NULL)
+  {
+    delete state_;
+    state_ = state;
+  }
+}
+```
+
+```
+HeroineState* StandingState::handleInput(Heroine& heroine, Input input)
+{
+  if (input == PRESS_DOWN)
+  {
+    // Other code...
+    return new DuckingState();
+  }
+
+  // Stay in this state.
+  return NULL;
+}
+```
+
+
 
 
 ---
