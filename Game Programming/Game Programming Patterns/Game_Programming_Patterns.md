@@ -1377,6 +1377,182 @@ HeroineState* StandingState::handleInput(Heroine& heroine, Input input)
 }
 ```
 
+#### 7.6 입장과 퇴장
+상태 패턴의 목표는 같은 상태에 대한 모든 동작과 데이터를 클래스 하나에 캡슐화하는 것  
+```
+HeroineState* DuckingState::handleInput(Heroine& heroine, Input input)
+{
+  if (input == RELEASE_DOWN)
+  {
+    heroine.setGraphics(IMAGE_STAND);
+    return new StandingState();
+  }
+
+  // Other code...
+}
+```
+지금까지는 이전 상태에서 스프라이트를 변경했지만, 상태에서 그래픽까지 제어하는게 바람직함  
+
+```
+class StandingState : public HeroineState
+{
+public:
+  virtual void enter(Heroine& heroine)
+  {
+    heroine.setGraphics(IMAGE_STAND);
+  }
+
+  // Other code...
+};
+```
+Heroin 클레스에서 새로운 상태에 들어있는 enter 함수를 호출하도록 상태 변경 코드를 수정
+
+```
+void Heroine::handleInput(Input input)
+{
+  HeroineState* state = state_->handleInput(*this, input);
+  if (state != NULL)
+  {
+    delete state_;
+    state_ = state;
+
+    // 새로운 상태의 입장 함수를 호출
+    state_->enter(*this);
+  }
+}
+```
+엎드리기 코드를 더욱 단순하게 만들 수 있음
+
+```
+HeroineState* DuckingState::handleInput(Heroine& heroine, Input input)
+{
+  if (input == RELEASE_DOWN)
+  {
+    return new StandingState();
+  }
+
+  // Other code...
+}
+```
+상태가 새로운 상태로 교체되기 직전에 호출되는 퇴장 코드도 이런 식으로 활용 가능
+
+#### 7.7 FSM의 단점
+인공지능같이 더 복잡한 곳에 적용하다 보면 한계에 부딪힘  
+이를 해결하기 위해 다음과 같은 방법이 있음
+
+#### 7.8 병행 상태 기계
+만약에 주인공이 총을 들 수 있다면, 앞에서 만든 FSM 방식으로는 모든 상태를 무장, 비무장에 맞춰 두 개씩 만들어야함  
+
+두 종류의 상태, 즉 무엇을 하는가와 무엇을 들고 있는가를 한 상태 기계에 욱여넣다 보니 생기는 문제임  
+
+상태 기계를 둘로 나누면 문제를 해결할 수 있음  
+무엇을 하는가에 대한 상태 기계는 그대로 두고, 무엇을 들고 있는가에 대한 상태 기계를 따로 정의  
+Heroin 클래스는 이들 '상태'를 **각각** 참조  
+(사실 무기 장착에는 bool만 사용하여 표현해도 됨)
+```
+class Heroine
+{
+  // Other code...
+
+private:
+  HeroineState* state_;
+  HeroineState* equipment_;
+};
+```
+Heroin에서 입력을 상태에 위암할 때에는 입력을 **상태 기계 양쪽에 다 전달**  
+```
+void Heroine::handleInput(Input input)
+{
+  state_->handleInput(*this, input);
+  equipment_->handleInput(*this, input);
+}
+```
+
+두 상태 기계가 서로 전혀 연관이 없다면 이 방법이 좋음
+
+#### 7.9 계층형 상태 기계
+동작에 살을 덧붙이다보면 서기, 걷기, 달리기, 미끄러지기 같은 비슷한 상태가 많이 생김  
+단순한 상태 기계 구현에서는 이런 코드를 모든 상태마다 중복해 넣어야함  
+그보다는 한 번만 구현하고 다른 상태에서 재사용하는게 나음  
+
+점프와 엎드리기는 '땅 위에 있는' 상태 클래스를 정의해서 처리  
+서기, 걷기, 달리기, 미끄러지기는 '땅 위에 있는' 상태 클래스를 상속받아 고유 동작을 추가하면 됨  
+
+이러한 구조를 계층형 상태 기계라고 함  
+
+어떤 상태는 상쉬 상태를 가질 수 잇고, 그 경우 그 상태 자신은 하위 상태가 됨  
+이벤트가 들어올 때 하위 상태에서 처리하지 않으면 상위 상태로 넘어감
+
+상위 상태용 클래스를 하나 정의
+```
+class OnGroundState : public HeroineState
+{
+public:
+  virtual void handleInput(Heroine& heroine, Input input)
+  {
+    if (input == PRESS_B)
+    {
+      // Jump...
+    }
+    else if (input == PRESS_DOWN)
+    {
+      // Duck...
+    }
+  }
+};
+```
+그 다음 각각의 하위 상태가 상위 상태를 상속 받음
+```
+class DuckingState : public OnGroundState
+{
+public:
+  virtual void handleInput(Heroine& heroine, Input input)
+  {
+    if (input == RELEASE_DOWN)
+    {
+      // Stand up...
+    }
+    else
+    {
+      // Didn't handle input, so walk up hierarchy.
+      OnGroundState::handleInput(heroine, input);
+    }
+  }
+};
+```
+클래스를 사용하는 GoF식 상태 패턴을 쓰지 않는다면 이런 구현이 불가능  
+그럴 땐 클래스에 상태를 하나만 두지 않고 상태 스택을 만들어 명시적으로 현재 상태의 상위 상태 연쇄를 모델링 할 수도 있음  
+현재 상태가 스택 최상위에 있고, 밑에는 바로 위 상위 상태가 있으며, 그 상위 상태 밑에는 그 상위 상태의 상위 상태가 있는 식  
+상태 관련 동작이 들어오면 어느 상태든 동작을 처리할 때까지 스택 위에서부터 밑으로 전달
+
+#### 7.10 푸시다운 오토마타
+상태 스택을 활용하여 FSM을 활장하는 다른 방법  
+
+FSM에는 이력 개념이 없다는 문제가 있음  
+현재 상태는 알 수 있지만, 직전 상태가 무엇인지를 따로 저장하지 않기 때문에 이전 상태로 쉽게 돌아갈 수 없음
+
+만약에 주인공이 총을 쏜다면 어려운 부분은 총을 쏜 뒤에 어느 상태로 돌아가야 하는가 하는 점  
+일반적인 FSM에서는 이전 상태를 알 수 없어서 총 쏘기가 끝낫을 때 되돌아갈 상태를 하드코딩 해야함  
+
+이것보다는 총 쏘기 전 상태를 저장해놨다가 나중에 불러와 써먹는게 훨씬 나음  
+
+이럴 때 써먹을 만한 것이 **푸시다운 오토마타**  
+
+FSM이 **한 개**의 상태를 포인터로 관리했다면 푸시다운 오토마타에서는 상태를 **스택**으로 관리함  
+FSM은 이전 상태를 덮어쓰고 새로운 상태로 전이하는 방식  
+푸시다운 오토마타에서는 이외에도 부가적인 명령이 두 가지 더 있음  
+ - 새로운 상태를 스택에 넣음(push)  
+    스택의 최상위 상태가 '현재'상태이기 때문에, 새로 추가된 상태가 현재 상태가 됨
+    단, 이전 상태는 버리지 않고 방금 들어온 최신 상태 밑에 있게 됨
+ - 최상위 상태를 스택에서 뺌(pop)  
+    빠진 상태는 제거되고, 바로 밑에 있던 상태가 새롭게 '현재'상태가 됨  
+
+![image](https://user-images.githubusercontent.com/32252062/71174852-7ec6da00-22a9-11ea-9262-a03c0bf3a66e.png)
+(그림 7-2) 넣기와 빼기
+
+총 쏘기 상태를 구현할 때, 발사 버튼을 누르면 총 쏘기 상태를 스택에 넣고, 총 쏘기 애니메이션이 끝날 때 총 쏘기 상태를 스택에서 빼면, 푸시다운 오토마타가 알아서 이전 상태로 보내 줌  
+
+#### 7.11 얼마나 유용한가?
 
 
 
