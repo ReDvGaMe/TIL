@@ -14,10 +14,10 @@
     - [관찰자](#CHAPTER-4.-관찰자)
     - [프로토타입](#CHAPTER-5.-프로토타입)
     - [싱글턴](#CHAPTER-6.-싱글턴)
-    - 상태
-3. 순서 패턴
-    - 이중 버퍼
-    - 게임 루프
+    - [상태](#CHAPTER-7.-상태)
+3. [순서 패턴](#Part-3.-순서-패턴)
+    - [이중 버퍼](#CHAPTER-8.-이중-버퍼)
+    - [게임 루프](#CHAPTER-9.-게임-루프)
     - 업데이트 메서드
 4. 행동 패턴
     - 바이트코드
@@ -90,6 +90,7 @@ _(단, 버릴 코드는 확실히 버리고 필요하다면 구조화하여 다�
 ## Part 2. 디자인 패턴 다시 보기  
 ---
 ### CHAPTER 2. 명령  
+---
 **명령** 패턴은 메서드 호출을 실체화한 것  
 실체화 : 어떤 개념을 변수에 저장하거나 함수에 전달할 수 있도록 **데이터**, 즉 **객체**로 바꿀수 있다는 것을 의미 _(콜백, 함수 포인터와 비슷)_  
 
@@ -896,8 +897,1116 @@ public:
 ---
 ### CHAPTER 6. 싱글턴
 ---
+#### 6.1 싱글턴 패턴  
+- 오직 한 개의 인스턴스만 갖도록 보장  
+인스턴스가 여러 개면 제대로 작동하지 않는 상황이 종종 있음  
+이를 싱글턴으로 만들면 클래스가 인스턴스를 하나만 가지도록 컴파일 단계에서 강제할 수 있음
 
+- 전역 접근점을 제공  
+싱글턴은 그 인스턴스를 전역에서 접근할 수 있는 메서드를 제공  
+이를 통해서, 누구든지 어디서든지 우리가 만든 인스턴스에 접근 가능  
+```
+class FileSystem{
+public:
+    static FileSystem& instance() {
+        // 게으른 초기화
+        if(instance_ == NULL){
+            instance_ = new FileSystem();
+        }
+        return *instance_;
+    }
 
+private:
+    FileSystem() {}
+    static FileSystem* instance_;
+};
+```
+instance_ 정적 멤버 변수는 클래스 인스턴스를 저장  
+생성자가 private이기 때문에 밖에서는 생성할 수 없음  
+public에 있는 instance() 정적 메서드는 코드 어디에서나 싱글천 인스턴스에 접근할 수 있게 하고, 싱글턴을 실제로 필요로 할 때까지 인스턴스 초기화를 미루는 역할도 함  
+ 
+```
+class FileSystem{
+public:
+    static FileSystem& instance(){
+        static FileSystem *instance = new FileSystem();
+        return *intance;
+    }
+
+priavte:
+    FileSystem() {}
+}
+```
+C++ 11에서는 정적 지역 변수 초기화 코드가 멀티스레드 환경에서도 딱 한 번 실행되어야 하기 때문에 스레드 안전
+
+#### 6.2 싱글턴을 왜 사용하는가?
+- 한 번도 사용하지 않는다면 아예 인스턴스를 생성하지 않음  
+싱글턴은 처음 사용될 대 초기화만 되므로, 게임 내에서 전혀 사용되지 않으면 아예 초기화되지 않음
+
+- 런타임에 초기화됨  
+정적 멤버 변수는 자동 초기화되는 문제가 있음  
+즉, 컴파일러는 main 함수를 호출하기 전에 정적 변수를 초기화하기 때문에 프로그램이 실행된 다음에야 알 수 있는(파일로 읽어 들인 설정 값 같은) 정보를 활용할 수 없음  
+
+    게으른 초기화는 이런 문제를 해결  
+    싱글턴은 최대한 늦게 초기화되기 때문에, 순환 의존만 없다면, 초기화할 때 다른 싱글턴을 참조해도됨
+
+- 싱글턴을 상속할 수 있음  
+파일 시스템 래퍼가 크로스 플랫폼을 지원해야 한다면 추상 인터페이스를 만든 뒤,  
+플랫폼마다 구체 클래스를 만들면 됨
+```
+class FileSystem{
+public:
+    virtual ~FileSystem() {}
+    virtual char* readFile(char* path) = 0;
+    virtual void writeFile(char* path, char* contents) = 0;
+};
+```
+
+플랫폼별로 하위 클래스 정의
+```
+class PS3Filesystem : public FileSystem{
+public:
+    virtual char* readFile(char* path){
+        // 소니의 파일 IO API를 사용
+    }
+    virtual void writeFile(char* path, char* contents){
+        // 소니의 파일 IO API를 사용
+    }
+};
+
+class WiiFilesystem : public FileSystem{
+public:
+    virtual char* readFile(char* path){
+        // 닌텐도의 파일 IO API를 사용
+    }
+    virtual void writeFile(char* path, char* contents){
+        // 닌텐도의 파일 IO API를 사용
+    }
+};
+```
+
+FileSystme클래스를 싱글턴으로 만듬
+```
+class FileSystem{
+public:
+    static FileSystem& instance();
+
+    virtual ~FileSystem() {}
+    virtual char* readFile(char* path) = 0;
+    virtual void writeFile(char* path, char* contents) = 0;
+
+protected:
+    FileSystem() {}
+};
+```
+
+핵심은 인스턴스를 생성하는 부분
+```
+FileSystme& FileSystme::instance() {
+#if PLATFORM == PLAYSTATION3
+    static FileSystme = *instance = new PS3FileSystem();
+#elif PLATFORM == WII
+    static FileSystme = *instance = new WiiFileSystem();
+#endif
+    return *instance;        
+}
+```
+
+#### 6.3 싱글턴이 왜 문제일까?
+짧게 놓고 보면 싱글턴 패턴에는 큰 문제가 없음  
+하지만 다른 단기적인 설계 결정들과 마찬가지로 길게 놓고 보면 비용을 지불함  
+꼭 필요하지 않은 곳에 싱글턴을 적용하면 다음과 같은 문제에 부딪힘
+
+#### 알고보면 전역 변수
+- 전역 변수는 코드를 이해하기 어렵게 함  
+
+- 전역 변수는 커플링을 조장  
+
+- 전역 변수는 멀티스레딩 같은 동시성 프로그래밍에 맞지 않음
+
+#### 싱글턴은 문제가 하나뿐일 때도 두 가지 문제를 풀려 함
+싱글턴은 **'한 개의 인스턴스'**와 **'전역 접근'** 두 가지를 한번에 해결하려 함  
+하지만 보통은 **'전역 접근'**이 싱글턴 패턴을 선택하는 이유  
+
+Log 클래스를 만들 때, 게임 내 모듈에서 진단 정보를 Log로 남길 수 있다면 편리할 것  
+하지만 모든 함수 인수에 Log 클래스 인스턴스를 추가하면 메서드 시그니처가 번잡해지고 코드 의도를 알아보기 어려워짐  
+
+가장 간단한 해결책은 Log 클래스를 싱글턴으로 만들면 모든 함수에서 직접 Log 클래스에 접근해 인스턴스를 얻을 수 있음  
+다만 의도치 않게 Log **객체를 하나만 만들 수 있다**는 **제한**이 생김
+
+Log를 파일 하나에 다 쓴다면 인스턴스도 하나만 있으면되나, 모든 분야에서 필요한 정보를 Log로 남기면 파일이 뒤죽박죽 되어버림  
+따라서 Log를 여러 파일에 분야별로 나눠 쓸 수 있다면 좋음  
+싱글턴을 사용하면 인스턴스를 여러 개 만들 수 없는 문제가 생김  
+어디서나 편하게 접근할 수 있따는 장점이 역으로 단점이 되어버림
+
+#### 게으른 초기화는 제어 할 수 없음
+가상 메모리를 사용 가능하고, 성능 요구도 심하지 않은 데스크톱 PC에서는 게으른 초기화가 괜찮은 기법  
+하지만 게임에서는 다름  
+시스템을 초기화 할 때 메모리 할당, 리소스 로딩 등 할 일이 많다 보니 시간이 꽤 걸릴 수 있음  
+오디오 시스템 초기화에 일정 시간 이상 걸린다면 초기화 시점을 제어해야함  
+처음 소리를 재생할 때 게으른 초기화를 하게 만들면 게임 도중에 초기화가 시작되는 바람에 화면 프레임이 떨어지고 게임이 버벅댈 수 있음
+
+마찬가지로 게임에서는 메모리 단편화를 막기 위해 힙에 메모리를 할당하는 방식을 세밀하게 제어하는 게 보통  
+오디오 시스템이 초기화 될 때 상당한 메모리를 힙에 할당하면, 힙 **어디에** 메모리를 할당할지를 제어할 수 있도록 적절한 초기화 **시점**을 찾아야함  
+
+이런 두 가지 문제 때문에 대부분 게임에서는 게으른 초기화를 사용하지 않음  
+정적 클래스를 사용하여 해결 가능하면 정적 클래스를 사용  
+
+#### 6.4 대안
+#### 클래스가 꼭 필요한가?
+싱글턴 클래스 중에는 애매하게 다른 객체 관리용으로만 존재하는 관리자(manager)가 많음  
+이는 OOP를 제대로 이해하지 못해 만드는 경우도 많음
+
+서툴게 만든 싱글턴은 다른 클래스에 기능을 더해주는 '도우미'인 경우가 많음  
+가능하다면 도우미 클래스에 있던 작동 코드를 모두 원래 클래스로 옮겨야함  
+**객체가 스스로를 챙기게 하는게 OOP**  
+
+#### 오직 한 개의 클래스 인스턴스만 갖도록 보장  
+이는 싱글턴 패턴이 해결하려는 첫 번째 문제  
+인스턴스를 하나만 있도록 보장하는 건 중요, 그렇다고 누구나 어디서든 인스턴스에 접근할 수 있게 하고 싶은건 아닐 수도 있음  
+
+전역 접근 없이 클래스 인스턴스만 한 개로 보장할 수 있는 방법 : 단언문(assert)  
+단언문은 코드에 제약을 넣을 때 사용  
+assert()는 인수 값을 평가하여 값이 참이면 아무것도 하지 않지만, 거짓이라면 그 자리에서 코드를 중지  
+
+다만 싱글턴은 클래스 문법을 사용해 컴파일 시간에 단일 인스턴스를 보장하지만,  
+이 방식에서는 런타임에 인스턴스 개수를 확인한다는 게 단점  
+
+#### 인스턴스에 쉽게 접근하기
+쉬운 접근성은 싱글턴을 선택하는 가장 큰 이유  
+이런 편리함에는 원치 않는 곳에서도 쉽게 접근할 수 있다는 비용이 따름  
+
+객체에 접근할 수 있는 다른 방법
+ - 넘겨주기  
+객체를 필요로 하는 함수에 인수로 넘겨주는 게 가장 쉬우면서도 최선인 경우가 많음
+
+    객체를 렌더링하려면 렌더링 상태를 담고 있는 그래픽 디바이스 대표 객체에 접근할 수 있어야함  
+이럴 때는 일반적으로 모든 렌더링 함수에서 context 같은 이름의 매개변수를 받음  
+
+    어떤 객체는 메스드 시그니처에 포함되지 않음  
+예를 들어 AI 관련 함수에서도 로그를 넘길 수 있어야하지만, AI의 핵심이 아닌 Log 객체를 인수에 추가하기에는 좀 어색
+
+ - 상위 클래스로부터 얻기  
+많은 게임에서 클래스를 대부분 한 단계만 상속할 정도로 상속 구조를 얕고 넓게 가져감  
+이런 상속 구조에서는 많은 클래스에서 같은 상위 객체에 접근 가능한데, 이를 이용하면 넓은 범위에서 사용 가능한 인스턴스를 만들 수 있음
+
+ - 이미 전역인 객체로부터 얻기  
+전역 상태를 모두 제거하기란 너무 이상적  
+결국에는 Game이나 World같이 전체 게임 상태를 관리하는 전역 객체와 커플링되어 있기마련  
+기존 전역 객체를 사용하면 전역 클래스 개수를 줄일 수 있음  
+
+더 많은 코드가 Game이나 World 클래스에 커플링된다는 단점은 있음
+
+- 서비스 중개자로부터 얻기(16장)  
+
+#### 6.5 싱글턴에 남은 것  
+싱글턴을 대체할 패턴  
+하위 클래스 샌드박스 패턴(12장) : 클래스가 같은 인스턴스들이 공용 상태를 전역으로 만들지 않고도 접근할 수 있는 방법  
+서비스 중개자 패턴(16장) : 객체를 전역으로 접근할 수 있게 하되, 객체를 훨씬 유연하게 설정할 수 있는 방법을 제공
+
+---
+---
+### CHAPTER 7. 상태  
+---
+> 객체의 내부 상태에 따라 스스로 행동을 변경할 수 있게 허가하는 패턴, 이렇게 하면 객체는 마치 자신의 클래스를 바꾸는 것처럼 보임
+
+간단한 횡스크롤 플랫포머 게임 만들기
+```
+void Heroine::handleInput(Input input)
+{
+  if (input == PRESS_B)
+  {
+    if (!isJumping_ && !isDucking_)
+    {
+      // Jump...
+    }
+  }
+  else if (input == PRESS_DOWN)
+  {
+    if (!isJumping_)
+    {
+      isDucking_ = true;
+      setGraphics(IMAGE_DUCK);
+    }
+    else
+    {
+      isJumping_ = false;
+      setGraphics(IMAGE_DIVE);
+    }
+  }
+  else if (input == RELEASE_DOWN)
+  {
+    if (isDucking_)
+    {
+      // Stand...
+    }
+  }
+}
+```
+
+무언가를 검사하려면 계속해서 플래스 변수를 만들어야 함  
+이렇게되면 조금만 건드리면 망가짐  
+
+![state_01](https://user-images.githubusercontent.com/32252062/70800882-ba1c6100-1df0-11ea-93a1-76ff390969d7.png)
+(그림 7-1) 상태 기계를 그린 플로차트
+
+위는 **유한 상태 기계(FSM)**임, FSM은 컴퓨터 과학 분야 중의 하나인 **오토마타 이론**에서 나옴  
+ - 가질수 있는 **'상태'**가 한정
+ - 한 번에 **'한 가지'** 상태만 될 수 있음
+ - '입력'이나 '이벤트'가 **기계에 전달**됨
+ - 각 상태에는 **입력에 따라 다음 상태로 바뀌는 '전이'**가 있음
+
+#### 열거형과 다중 선택문  
+여러 플래그 변수 중에서 하나만 참일 때가 많다면 **열거형(enum)**이 필요  
+
+이전에는 입력에 따라 먼ㅁ저 분기한 뒤에 상태에 따라 분기  
+따라서 하나의 버튼 입력에 대한 코드는 모아둘 수 있었으나, 하나의 상태에 대한 코드는 흩어져 있었음  
+상태 관련 코드를 한곳에 모아두기 위해 먼저 상태에 따라 분기  
+```
+void Heroine::handleInput(Input input)
+{
+  switch (state_)
+  {
+    case STATE_STANDING:
+      if (input == PRESS_B)
+      {
+        state_ = STATE_JUMPING;
+        yVelocity_ = JUMP_VELOCITY;
+        setGraphics(IMAGE_JUMP);
+      }
+      else if (input == PRESS_DOWN)
+      {
+        state_ = STATE_DUCKING;
+        setGraphics(IMAGE_DUCK);
+      }
+      break;
+
+    case STATE_JUMPING:
+      if (input == PRESS_DOWN)
+      {
+        state_ = STATE_DIVING;
+        setGraphics(IMAGE_DIVE);
+      }
+      break;
+
+    case STATE_DUCKING:
+      if (input == RELEASE_DOWN)
+      {
+        state_ = STATE_STANDING;
+        setGraphics(IMAGE_STAND);
+      }
+      break;
+  }
+}
+```
+
+열거형은 상태 기계를 구현하는 가장 간단한 방법이고, 이 정도만으로 충분할 때도 꽤 있음  
+
+열거형만으로 부족할 수도 있음  
+엎드려서 기를 모아 특수공격을 한다고 가정하면, 엎드려서 기를 모으는 시간을 기록해야함  
+이를 위해 Heroin에 chargeTime_필드를 추가  
+
+```
+void Heroine::update()
+{
+  if (state_ == STATE_DUCKING)
+  {
+    chargeTime_++;
+    if (chargeTime_ > MAX_CHARGE)
+    {
+      superBomb();
+    }
+  }
+}
+```
+엎드릴 때마다 시간 초기화
+```
+void Heroine::handleInput(Input input)
+{
+  switch (state_)
+  {
+    case STATE_STANDING:
+      if (input == PRESS_DOWN)
+      {
+        state_ = STATE_DUCKING;
+        chargeTime_ = 0;
+        setGraphics(IMAGE_DUCK);
+      }
+      // Handle other inputs...
+      break;
+
+      // Other states...
+  }
+}
+```
+기 모으기 공격을 추가하기 위해 함수 두 개를 수정하고 엎드리기 상태에서만 의미 있는 chargeTime_필드를 Heroine에 추가했어야함  
+이보다는 모든 코드와 데이터를 한 곳에 모아둘 수 있는게 나음  
+
+#### 상태패턴
+모든 분기문을 동적 디스패치(가상 함수)로 바꾸려는 사람이 있지만, 때로는 **if문**만으로도 충분함
+
+#### 상태 인터페이스
+상태에 의존하는 모든 코드, 즉, 다중 선택문에 있던 동작을 인터페이스의 가상 메서드로 만듬  
+```
+class HeroineState
+{
+public:
+  virtual ~HeroineState() {}
+  virtual void handleInput(Heroine& heroine, Input input) {}
+  virtual void update(Heroine& heroine) {}
+};
+```
+
+#### 상태별 클래스 만들기
+상태별로 인터페이스를 구현하는 클래스도 정의  
+메서드에는 정해진 상태가 되었을 때 주인공이 어떤 행동을 할지를 정의  
+다중 선택문에 있떤 case별로 클래스를 만들어 코드를 옮기면 됨
+```
+class DuckingState : public HeroineState
+{
+public:
+  DuckingState()
+  : chargeTime_(0)
+  {}
+
+  virtual void handleInput(Heroine& heroine, Input input) {
+    if (input == RELEASE_DOWN)
+    {
+      // Change to standing state...
+      heroine.setGraphics(IMAGE_STAND);
+    }
+  }
+
+  virtual void update(Heroine& heroine) {
+    chargeTime_++;
+    if (chargeTime_ > MAX_CHARGE)
+    {
+      heroine.superBomb();
+    }
+  }
+
+private:
+  int chargeTime_;
+};
+```
+chargeTime_ 변수를 Heroin에서 DuckingState 클래스로 옮겨서 엎드리기 상태에서만 의미 있따는 점을 객체 모델링을 통해서 분명하게 보여줌  
+
+#### 동작을 상태에 위임  
+Heroin 클레스에 자신의 현재 상태 객체 포인터를 추가해, 거대한 다중 선택문은 제거하고 대신 상태 객체에 위임  
+
+```
+class Heroine
+{
+public:
+  virtual void handleInput(Input input)
+  {
+    state_->handleInput(*this, input);
+  }
+
+  virtual void update()
+  {
+    state_->update(*this);
+  }
+
+  // Other methods...
+
+private:
+  HeroineState* state_;
+};
+```
+상태를 바꾸려면 state_ 포인터에 HeroineState를 상속받는 다른 객체를 할당하기만하면 됨
+
+#### 7.5 상태 객체는 어디에 둬야 할까?
+상태 패턴은 클래스를 쓰기 때문에 포인터에 저장할 실제 인스턴스가 필요  
+이를 위해 두 가지 방법이 있음  
+
+#### 정적 객체
+상태 객체에 필드가 따로 없다면 가상 메서드 호출에 필요한 vtable 포인터만있는 셈  
+이럴 경우 모든 인스턴스가 같기 때문에 인스턴스는 하나만 있으면 됨  
+정적 인스턴스는 원하는 곳에 두면 됨  
+```
+class HeroineState
+{
+public:
+  static StandingState standing;
+  static DuckingState ducking;
+  static JumpingState jumping;
+  static DivingState diving;
+
+  // Other code...
+};
+```
+각각의 정적 변수가 게임에서 사용하는 상태 인스턴스임  
+서 있는 상태에서 점프하게 하려면 다음과 같이 하면 됨  
+```
+if (input == PRESS_B)
+{
+  heroine.state_ = &HeroineState::jumping;
+  heroine.setGraphics(IMAGE_JUMP);
+}
+```
+
+#### 상태 객체 만들기
+정적 객체만으로는 캐릭터가 하나라면 가능하지만, 한 화면에 두 개 이상의 캐릭터가 보일 경우에는 문제가 됨  
+이럴 때는 전이할 때마다 상태 객체를 만들어서 FSM이 상태별로 인스턴스를 갖게 만들 수 있음  
+
+새로 상태를 할당했기 때문에 이전 상태를 해제해야하는데, 삭제할 때 this를 스스로 지우지 않도록 주의  
+
+```
+void Heroine::handleInput(Input input)
+{
+  HeroineState* state = state_->handleInput(*this, input);
+  if (state != NULL)
+  {
+    delete state_;
+    state_ = state;
+  }
+}
+```
+
+```
+HeroineState* StandingState::handleInput(Heroine& heroine, Input input)
+{
+  if (input == PRESS_DOWN)
+  {
+    // Other code...
+    return new DuckingState();
+  }
+
+  // Stay in this state.
+  return NULL;
+}
+```
+
+#### 7.6 입장과 퇴장
+상태 패턴의 목표는 같은 상태에 대한 모든 동작과 데이터를 클래스 하나에 캡슐화하는 것  
+```
+HeroineState* DuckingState::handleInput(Heroine& heroine, Input input)
+{
+  if (input == RELEASE_DOWN)
+  {
+    heroine.setGraphics(IMAGE_STAND);
+    return new StandingState();
+  }
+
+  // Other code...
+}
+```
+지금까지는 이전 상태에서 스프라이트를 변경했지만, 상태에서 그래픽까지 제어하는게 바람직함  
+
+```
+class StandingState : public HeroineState
+{
+public:
+  virtual void enter(Heroine& heroine)
+  {
+    heroine.setGraphics(IMAGE_STAND);
+  }
+
+  // Other code...
+};
+```
+Heroin 클레스에서 새로운 상태에 들어있는 enter 함수를 호출하도록 상태 변경 코드를 수정
+
+```
+void Heroine::handleInput(Input input)
+{
+  HeroineState* state = state_->handleInput(*this, input);
+  if (state != NULL)
+  {
+    delete state_;
+    state_ = state;
+
+    // 새로운 상태의 입장 함수를 호출
+    state_->enter(*this);
+  }
+}
+```
+엎드리기 코드를 더욱 단순하게 만들 수 있음
+
+```
+HeroineState* DuckingState::handleInput(Heroine& heroine, Input input)
+{
+  if (input == RELEASE_DOWN)
+  {
+    return new StandingState();
+  }
+
+  // Other code...
+}
+```
+상태가 새로운 상태로 교체되기 직전에 호출되는 퇴장 코드도 이런 식으로 활용 가능
+
+#### 7.7 FSM의 단점
+인공지능같이 더 복잡한 곳에 적용하다 보면 한계에 부딪힘  
+이를 해결하기 위해 다음과 같은 방법이 있음
+
+#### 7.8 병행 상태 기계
+만약에 주인공이 총을 들 수 있다면, 앞에서 만든 FSM 방식으로는 모든 상태를 무장, 비무장에 맞춰 두 개씩 만들어야함  
+
+두 종류의 상태, 즉 무엇을 하는가와 무엇을 들고 있는가를 한 상태 기계에 욱여넣다 보니 생기는 문제임  
+
+상태 기계를 둘로 나누면 문제를 해결할 수 있음  
+무엇을 하는가에 대한 상태 기계는 그대로 두고, 무엇을 들고 있는가에 대한 상태 기계를 따로 정의  
+Heroin 클래스는 이들 '상태'를 **각각** 참조  
+(사실 무기 장착에는 bool만 사용하여 표현해도 됨)
+```
+class Heroine
+{
+  // Other code...
+
+private:
+  HeroineState* state_;
+  HeroineState* equipment_;
+};
+```
+Heroin에서 입력을 상태에 위암할 때에는 입력을 **상태 기계 양쪽에 다 전달**  
+```
+void Heroine::handleInput(Input input)
+{
+  state_->handleInput(*this, input);
+  equipment_->handleInput(*this, input);
+}
+```
+
+두 상태 기계가 서로 전혀 연관이 없다면 이 방법이 좋음
+
+#### 7.9 계층형 상태 기계
+동작에 살을 덧붙이다보면 서기, 걷기, 달리기, 미끄러지기 같은 비슷한 상태가 많이 생김  
+단순한 상태 기계 구현에서는 이런 코드를 모든 상태마다 중복해 넣어야함  
+그보다는 한 번만 구현하고 다른 상태에서 재사용하는게 나음  
+
+점프와 엎드리기는 '땅 위에 있는' 상태 클래스를 정의해서 처리  
+서기, 걷기, 달리기, 미끄러지기는 '땅 위에 있는' 상태 클래스를 상속받아 고유 동작을 추가하면 됨  
+
+이러한 구조를 계층형 상태 기계라고 함  
+
+어떤 상태는 상쉬 상태를 가질 수 잇고, 그 경우 그 상태 자신은 하위 상태가 됨  
+이벤트가 들어올 때 하위 상태에서 처리하지 않으면 상위 상태로 넘어감
+
+상위 상태용 클래스를 하나 정의
+```
+class OnGroundState : public HeroineState
+{
+public:
+  virtual void handleInput(Heroine& heroine, Input input)
+  {
+    if (input == PRESS_B)
+    {
+      // Jump...
+    }
+    else if (input == PRESS_DOWN)
+    {
+      // Duck...
+    }
+  }
+};
+```
+그 다음 각각의 하위 상태가 상위 상태를 상속 받음
+```
+class DuckingState : public OnGroundState
+{
+public:
+  virtual void handleInput(Heroine& heroine, Input input)
+  {
+    if (input == RELEASE_DOWN)
+    {
+      // Stand up...
+    }
+    else
+    {
+      // Didn't handle input, so walk up hierarchy.
+      OnGroundState::handleInput(heroine, input);
+    }
+  }
+};
+```
+클래스를 사용하는 GoF식 상태 패턴을 쓰지 않는다면 이런 구현이 불가능  
+그럴 땐 클래스에 상태를 하나만 두지 않고 상태 스택을 만들어 명시적으로 현재 상태의 상위 상태 연쇄를 모델링 할 수도 있음  
+현재 상태가 스택 최상위에 있고, 밑에는 바로 위 상위 상태가 있으며, 그 상위 상태 밑에는 그 상위 상태의 상위 상태가 있는 식  
+상태 관련 동작이 들어오면 어느 상태든 동작을 처리할 때까지 스택 위에서부터 밑으로 전달
+
+#### 7.10 푸시다운 오토마타
+상태 스택을 활용하여 FSM을 활장하는 다른 방법  
+
+FSM에는 이력 개념이 없다는 문제가 있음  
+현재 상태는 알 수 있지만, 직전 상태가 무엇인지를 따로 저장하지 않기 때문에 이전 상태로 쉽게 돌아갈 수 없음
+
+만약에 주인공이 총을 쏜다면 어려운 부분은 총을 쏜 뒤에 어느 상태로 돌아가야 하는가 하는 점  
+일반적인 FSM에서는 이전 상태를 알 수 없어서 총 쏘기가 끝낫을 때 되돌아갈 상태를 하드코딩 해야함  
+
+이것보다는 총 쏘기 전 상태를 저장해놨다가 나중에 불러와 써먹는게 훨씬 나음  
+
+이럴 때 써먹을 만한 것이 **푸시다운 오토마타**  
+
+FSM이 **한 개**의 상태를 포인터로 관리했다면 푸시다운 오토마타에서는 상태를 **스택**으로 관리함  
+FSM은 이전 상태를 덮어쓰고 새로운 상태로 전이하는 방식  
+푸시다운 오토마타에서는 이외에도 부가적인 명령이 두 가지 더 있음  
+ - 새로운 상태를 스택에 넣음(push)  
+    스택의 최상위 상태가 '현재'상태이기 때문에, 새로 추가된 상태가 현재 상태가 됨
+    단, 이전 상태는 버리지 않고 방금 들어온 최신 상태 밑에 있게 됨
+ - 최상위 상태를 스택에서 뺌(pop)  
+    빠진 상태는 제거되고, 바로 밑에 있던 상태가 새롭게 '현재'상태가 됨  
+
+![image](https://user-images.githubusercontent.com/32252062/71174852-7ec6da00-22a9-11ea-9262-a03c0bf3a66e.png)
+(그림 7-2) 넣기와 빼기
+
+총 쏘기 상태를 구현할 때, 발사 버튼을 누르면 총 쏘기 상태를 스택에 넣고, 총 쏘기 애니메이션이 끝날 때 총 쏘기 상태를 스택에서 빼면, 푸시다운 오토마타가 알아서 이전 상태로 보내 줌  
+
+---
+---
+## Part 3. 순서 패턴  
+---
+### CHAPTER 8. 이중 버퍼  
+---
+#### 8.1, 8.2 의도 및 동기  
+여러 순차 작업의 결과를 한 번에 보여줌  
+
+컴퓨터는 큰 일을 작은 단계로 쪼개어 하나씩 처리할 수 있음(**순차적**으로 동작)  
+사용자 입장에서는 순차적으로 혹은 동시에 진행되는 여러 작업을 한 번에 모아서 봐야 할 때가 있음  
+예를 들어, 게임에서 유저가 화면을 볼 때, 화면을 그리는 과정이 보이면 몰입할 수 없음  
+**이중 버퍼**는 이런 문제를 해결 가능  
+
+#### 간단한 컴퓨터 그래픽스 작동 원리
+대부분의 컴퓨터에서는 픽셀을 **프레임버퍼**로부터 가져오기 때문에 어떤 색을 어디에 뿌려야 할지 알 수 있음  
+**프레임버퍼**는 메모리에 할당된 픽셀들의 배열로, 한 픽셀의 색을 여러 바이트로 표현하는 RAM의 한 부분  
+화면에 색을 뿌릴 때 프레임버퍼로부터 한 바이트씩 색깔 값을 읽어옴  
+
+궁극적으로 게임을 화면에 보여주려면 프레임버퍼에 값을 써 넣으면 되나, 사소한 문제가 하나 있음  
+렌더링 코드가 실행되는 동안 보통은 다른 작업을 실행되지 않으나, 렌더링 도중에 실행되는 작업이 일부 있음  
+그중 하나가 게임이 실행되는 동안 디스플레이가 프레임버퍼를 반복해서 읽는 것인데, 여기서 문제가 발생함   
+
+화면에 웃는 얼굴을 하나 그린다고 할 때, 코드에서는 루프를 돌면서 프레임버퍼에 필셀 값을 입력함  
+코드가 프레임버퍼에 값을 쓰는 도중에도 비디오 드라이버에서 프레임버퍼 값을 읽음  
+우리가 입력해놓은 픽셀 값을 비디오 드라이버가 화면에 출력하면서 웃는 얼굴이 나오기 시자하지만,  
+아직 다 입력하지 못한 퍼버 값까지 화면에 출력할 수 있음  
+
+그 결과 그림 일부만 나타나는 테어링이 발생함  
+
+![image](https://user-images.githubusercontent.com/32252062/72338721-6c08bf00-3708-11ea-9f48-6b32cbfd5896.png)
+(그림 8-1) 렌더링 도중 나타나는 테어링
+
+이 문제를 해결하기 위해서 코드에서는 픽셀을 한 번에 하나씩 그리되, 비디오 드라이버는 전체 픽셀을 한 번에 다 읽을 수 있게 해줘야함  
+즉, 이전 프레임에는 얼굴 그림이 하나도 안보이다가, 다음 프레임에 전체가 보여야함  
+**이중 버퍼 패턴**이 이런 문제를 해결할 수 있음  
+
+이중 버퍼는 프레임버퍼를 **두 개** 준비해, 하나의 버퍼에는 지금 프레임에 보일 값을 둬서 GPU가 원할 때 언제든지 읽을 수 있게함  
+그동안 렌더링 코드는 **다른** 프레임버퍼를 채움  
+렌더링 코드가 장면을 다 그린 후에는 조명을 바꾸는 것처럼 버퍼를 교체한 뒤에 비디어 하드웨어에 두 번째 버퍼를 읽으라고 알려줌  
+화면 깜빡임에 맞춰 버퍼가 바뀌기 때문에 테어링은 더 이상 생기지 않고 전체 장면이 한 번에 나타남  
+
+#### 8.3 패턴
+**버퍼 클래스**는 변경이 가능한 상태인 **버퍼**를 캡슐화함  
+버퍼는 점차적으로 수정되나, 밖에서는 한 번에 바뀌는 것처럼 보이게 하고 싶음  
+이를 위해서 버퍼 클래스는 **현재 버퍼**와 **다음 버퍼**, 두 개의 버퍼를 가짐
+
+ - 정보를 읽을 때는 항상 **현재** 버퍼에 접근  
+ - 정보를 쓸때는 항상 **다음** 버퍼에 접근  
+ - 변경이 끝나면 다음 버퍼와 현재 버퍼를 교체(현재 버퍼는 새로운 다음 버퍼가 되어 재사용)  
+
+#### 8.4 언제 쓸것인가?
+이중 버퍼 패턴은 구체적으로 다음 같은 상황에서 적합함  
+ - 순차적으로 변경해야 하는 상태가 있을 때
+ - 이 상태는 변경 도중에도 접근 가능해야 함
+ - 바깥 코드에서는 작업 중인 상태에서 접근할 수 없어야함
+ - 상태에 값을 쓰는 도중에도 기다리지 않고 바로 접근할 수 있어야함
+
+#### 8.5 주의사항
+다른 대규모 아키텍처용 패턴과는 달리 이중 버퍼는 코드 구현 수준에서 적용되기 때문에 코드 전체에 미치는 영향이 적은 편이고 다들 비슷비슷하게 쓰고 있음  
+그래도 몇 가지 주의할 점은 있음
+
+#### 교체 연산 자체에 시간이 걸림
+이중 버퍼 패턴에서는 버퍼에 값을 다 입력했다면 버퍼를 교체해야 함  
+교체 연산은 원자적이어야함, 즉 교체 중에는 두 버퍼 **모두에** 접근할 수 없어야 함  
+대부분은 포인터만 바꾸면 되기 때문에 충분히 빠르나, 혹시라도 버퍼에 값을 쓰는 것보다 교체가 더 오래걸린다면 이중 버퍼 패턴이 아무런 도움이 안됨  
+
+#### 버퍼가 두 개 필요함
+이중 버퍼 패턴은 메모리가 더 필요함  
+상태를 메모리 버퍼 두 곳에 항상 쌍으로 가지고 있어야 하기 때문에 메모리가 부족한 기기에서는 굉장히 부담이 될 수 있음  
+메모리가 부족해 버퍼를 두 개 만들기 어렵다면 이중 버퍼 패턴을 포기하고 상태를 변경하는 동안 밖에서 접근하지 못하게 할 방법을 찾아야함  
+
+#### 8.6 예제 코드
+```
+class Framebuffer
+{
+public:
+  Framebuffer() { clear(); }
+
+  void clear()
+  {
+    for (int i = 0; i < WIDTH * HEIGHT; i++)
+    {
+      pixels_[i] = WHITE;
+    }
+  }
+
+  void draw(int x, int y)
+  {
+    pixels_[(WIDTH * y) + x] = BLACK;
+  }
+
+  const char* getPixels()
+  {
+    return pixels_;
+  }
+
+private:
+  static const int WIDTH = 160;
+  static const int HEIGHT = 120;
+
+  char pixels_[WIDTH * HEIGHT];
+};
+```
+Framebuffer 클래스는 clear() 메서드로 전체 버퍼를 흰색으로 채우거나, draw()메서드로 특정 픽셀에 검은색을 입력할 수 있음  
+getPixels() 메서드를 통해 픽셀 데이터를 담고 있는 메모리 배열에 접근할 수 있음  
+비디오 드라이버가 화면을 그리기 위해 버퍼 값을 읽을 때 호출하는 것이 getPixels()  
+
+이걸 Scene 클래스 안에 넣음  
+Scene 클래스에서는 여러 번 draw()를 호출해 버퍼에 원하는 그림을 그림
+```
+class Scene
+{
+public:
+  void draw()
+  {
+    buffer_.clear();
+
+    buffer_.draw(1, 1);
+    buffer_.draw(4, 1);
+    buffer_.draw(1, 3);
+    buffer_.draw(2, 4);
+    buffer_.draw(3, 4);
+    buffer_.draw(4, 3);
+  }
+
+  Framebuffer& getBuffer() { return buffer_; }
+
+private:
+  Framebuffer buffer_;
+};
+```
+
+![image](https://user-images.githubusercontent.com/32252062/72340085-e4707f80-370a-11ea-92fb-1e0bc31d4607.png)  
+(그림 8-2) 얼굴  
+
+게임 코드는 매 프레임마다 어떤 장면을 그려야 할지를 알려줌  
+먼저 버퍼를 지운 뒤에 한 번에 하나씩 그리고자 하는 픽셀을 찍음  
+동시에 비디오 드라이버에서 내부 버퍼에 접근할 수 있도록 getBuffer()를 제공  
+
+하지만 이것만으로는 비디오 드라이버가 아무때나 getPixel()를 호출해 버퍼에 접근하는 문제가 생길 수 있음  
+```
+buffer_.draw(1, 1);
+buffer_.draw(4, 1);
+// <- 이때 비디오 드라이버가 픽셀 전체를 읽을 수도 있음
+buffer_.draw(1, 3);
+buffer_.draw(2, 4);
+buffer_.draw(3, 4);
+buffer_.draw(4, 3);
+```
+이런 일이 벌어지면 테어링이 생김  
+
+```
+class Scene
+{
+public:
+  Scene()
+  : current_(&buffers_[0]),
+    next_(&buffers_[1])
+  {}
+
+  void draw()
+  {
+    next_->clear();
+
+    next_->draw(1, 1);
+    // ...
+    next_->draw(4, 3);
+
+    swap();
+  }
+
+  Framebuffer& getBuffer() { return *current_; }
+
+private:
+  void swap()
+  {
+    // Just switch the pointers.
+    Framebuffer* temp = current_;
+    current_ = next_;
+    next_ = temp;
+  }
+
+  Framebuffer  buffers_[2];
+  Framebuffer* current_;
+  Framebuffer* next_;
+};
+```
+버퍼에 접근할 때는 배열 대신 next_와 current_ 포인터 멤버 변수로 접근  
+렌더링 할 때는 next_ 포인터가 가리키는 다음 버퍼에 그리고, 비디오 드라이버는 current_ 포인터로 현재 버퍼에 접근해 픽셀을 가져옴  
+
+이런식으로 비디오 드라이버가 작업 중인 버퍼에 접근하는 걸 막을 수 있음  
+
+장면을 다 그린 후에 swap()을 호출하면 됨  
+
+#### 그래픽스 외의 활용법
+변경 중인 상태에 접근할수 있다는 게 이중 버퍼로 해결하려는 문제의 핵심  
+원인은 보통 두 가지
+1. 다른 스레드나 인터럽트에서 상태에 접근하는 경우  
+  → 그래픽스 예제에서 살펴봄
+2. **어떤 상태를 변경하는 코드**가 동시에 지금 변경하려는 상태를 읽는 경우  
+  → 물리나 인공지능같이 객체가 서로 상호작용할 때 이런 경우를 쉽게 볼 수 있음  
+
+#### 멍청한 인공지능  
+```
+class Actor
+{
+public:
+  Actor() : slapped_(false) {}
+
+  virtual ~Actor() {}
+  virtual void update() = 0;
+
+  void reset()      { slapped_ = false; }
+  void slap()       { slapped_ = true; }
+  bool wasSlapped() { return slapped_; }
+
+private:
+  bool slapped_;
+};
+```
+매 프레임마다 배우 객체의 update()를 호출해 배우가 뭔가를 진행할 수 있게 해줘야함  
+특히 유저 입장에서는 **모든 배우가 한 번에 업데이트되는 것처럼 보여야 함**  
+
+배우는 서로 상호작용 할 수 있음  
+update()가 호출될 때 배우는 다른 배우 객체의 slap()을 호출해 때리고, wasSlapped()를 통해서 맞았는지 여부를 알 수 있음  
+
+```
+class Stage
+{
+public:
+  void add(Actor* actor, int index)
+  {
+    actors_[index] = actor;
+  }
+
+  void update()
+  {
+    for (int i = 0; i < NUM_ACTORS; i++)
+    {
+      actors_[i]->update();
+      actors_[i]->reset();
+    }
+  }
+
+private:
+  static const int NUM_ACTORS = 3;
+
+  Actor* actors_[NUM_ACTORS];
+};
+```
+Stage 클래스는 배우를 추가할 수 있고, 관리하는 배우 전체를 업데이트할 수 있는 update() 메서드를 제공  
+유저 입장에서는 배우들이 한 번에 움직이는 것처럼 보이겠지만, 내부적으로는 하나씩 업데이트
+
+```
+class Comedian : public Actor
+{
+public:
+  void face(Actor* actor) { facing_ = actor; }
+
+  virtual void update()
+  {
+    if (wasSlapped()) facing_->slap();
+  }
+
+private:
+  Actor* facing_;
+};
+```
+Actor를 상속받는 구체 클래스 Comedian을 정의  
+Comedian은 다른 배우 한 명을 바라보고 있다가 누구한테든 맞으면 보고 있던 배우를 때림  
+
+```
+Stage stage;
+
+Comedian* harry = new Comedian();
+Comedian* baldy = new Comedian();
+Comedian* chump = new Comedian();
+
+harry->face(baldy);
+baldy->face(chump);
+chump->face(harry);
+
+stage.add(harry, 0);
+stage.add(baldy, 1);
+stage.add(chump, 2);
+```
+무대는 다음 그림과 같음, 화살표는 누가 누구를 보고 있는지 보여주고 숫자는 배열에서의 인덱스임  
+
+![image](https://user-images.githubusercontent.com/32252062/72341367-6366b780-370d-11ea-8e01-bc7091369931.png)  
+(그림 8-3) 게임에서 벌어지는 일  
+
+```
+harry->slap();
+
+stage.update();
+```
+Stage 클래스의 update 메서드는 순서대로 돌아가면서 배우 객체의 update()를 호출하기 때문에, 코드가 실행된 후에는 이런 결과를 얻게 됨
+
+- Stage가 actor 0인 Harry를 업데이트  
+  → Harry가 맞음, 그래서 Baldy를 때림
+- Stage가 actor 1인 Baldy를 업데이트  
+  → Baldy가 맞음, 그래서 Chump를 때림
+- Stage가 actor 2인 Chump를 업데이트  
+  → Chump가 맞음, 그래서 Harry를 때림
+- Stage 업데이트 끝
+
+처음에 Harry를 때린 것이 한 프레임만에 전체 코미디언에게 전파됨  
+이번에는 바라보는 대상은 유지하되 Stage 배열 내에서의 위치를 바꿔봄  
+
+![image](https://user-images.githubusercontent.com/32252062/72341551-e556e080-370d-11ea-8f18-460df337d8a3.png)  
+(그림 8-4) 위치를 변경한 상황  
+
+무대를 초기화하는 코드에서 나머지는 그대로 두고 무대에 배우를 추가하는 코드만 다음과 같이 바꿈  
+```
+stage.add(harry, 2);
+stage.add(baldy, 1);
+stage.add(chump, 0);
+```
+
+다시 Harry를 때린 후 어떤 일이 벌어지는지 보면
+- Stage가 actor 0인 Chump를 업데이트  
+  → Chump가 맞지 않음, Chump는 아무것도 하지 않음
+- Stage가 actor 1인 Baldy를 업데이트  
+  → Baldy가 맞지 않음, Baldy는 아무것도 하지 않음
+- Stage가 actor 2인 Harry를 업데이트  
+  → Harry가 맞음, 그래서 Baldy를 때림
+- Stage 업데이트 끝
+
+배우 전체를 업데이트할 때 배우의 맞은 상태(slapped_)를 바꾸는데, 그와 동시에 같은 값을 읽기도 하다 보니 업데이트 초반에 맞은 상태를 바꾼게 나중에 가서 영향을 미치게 됨  
+
+결과적으로 배우들이 맞았을 때 배치 순서에 따라 반응하는 프레임이 달라질 수 있음  
+배우들이 동시에 행동하는 것처럼 보이고 싶었는데, 업데이트 순서에 따라 결과가 달라지면 안됨  
+
+#### 맞은 상태를 버퍼에 저장  
+여기에서도 이중 버퍼 패턴을 써먹을 수 있음  
+통짜 '버퍼' 객체 두 개 대신, 더 정교하게 배우의 '맞은' 상태만 버퍼에 저장  
+```
+class Actor
+{
+public:
+  Actor() : currentSlapped_(false) {}
+
+  virtual ~Actor() {}
+  virtual void update() = 0;
+
+  void swap()
+  {
+    // Swap the buffer.
+    currentSlapped_ = nextSlapped_;
+
+    // Clear the new "next" buffer.
+    nextSlapped_ = false;
+  }
+
+  void slap()       { nextSlapped_ = true; }
+  bool wasSlapped() { return currentSlapped_; }
+
+private:
+  bool currentSlapped_;
+  bool nextSlapped_;
+};
+```
+그래픽스 예제처럼 현재 상태(currentSlapped_)는 **읽기 용도**로, 다음 상태(nextSlapped_)는 **쓰기 용도**로 사용  
+rest() 메서드 대신에 swap() 메서드가 생김, swap()은 다음 상태를 현재 상태로 복사한 후 다음 상태를 초기화  
+```
+void Stage::update()
+{
+  for (int i = 0; i < NUM_ACTORS; i++)
+  {
+    actors_[i]->update();
+  }
+
+  for (int i = 0; i < NUM_ACTORS; i++)
+  {
+    actors_[i]->swap();
+  }
+}
+```
+이제 Stage의 update() 메서드는 모든 배우를 먼저 업데이트한 **다음에** 상태를 교체  
+결과적으로 배우 객체는 자신이 맞았다는 것을 **다음** 프레임에서야 알 수 있음  
+
+#### 8.7 디자인 결정
+이중 버퍼 패턴을 구현할 때 결정해야 할 중요한 점 두 가지가 있음
+
+#### 버퍼를 어떻게 교체할 것인가?
+ - 버퍼 포인터나 레퍼런스를 교체
+    - 빠름  
+      버퍼가 아무라 커도 포인터 두 개만 바꿔주면 됨
+
+    - 버퍼 코드 밖에서는 버퍼 메모리를 포인터로 저장할 수 없다는 한계가 있음  
+      이 방식에서는 데이터를 실제로 옮기지 않고, 주기적으로 다른 버퍼를 읽으라고 알려줌  
+      버퍼 외부 코드에서 버퍼 내 데이터를 직접 포인터로 저장하면 버퍼 교체 후 잘못된 데이터를 가리킬 가능성이 있음  
+      특히 비디오 드라이버가 프레임 버퍼는 항상 메모리에서 같은 위치에 있을 거라고 기대하는 시스템에서 문제가 됨  
+      이런 시스템에서는 이중 버퍼를 쓸 수 없음
+
+    - 버퍼에 남아 있는 데이터는 바로 이전 프레임 데이터가 아닌 2프레임 전 데이터임  
+      ```
+      버퍼 A에 프레임 1을 그림  
+      버퍼 B에 프레임 2을 그림  
+      버퍼 A에 프레임 3을 그림  
+      ```
+      프레임 3을 그릴 때 버퍼 A에 남아있는 데이터는 프레임 2가 아닌 프레임 1에서 그린 것임을 알 수 있음  
+      일반적으로는 그리기 전에 버퍼를 정리하기 때문에 별 문제가 안되나,  
+      버퍼에 남은 데이터를 재사용할 때는 이 데이터가 2프레임 전 데이터라는 걸 감안해야 함
+ - 버퍼끼리 데이터를 복사
+    - 다음 버퍼에는 딱 한 프레임 전 데이터가 들어 있음  
+      이전 버퍼에서 좀 더 최신 데이터를 얻을 수 있다는 장점
+
+    - 교체 시간이 더 걸림  
+      가장 큰 단점  
+      교체를 하려면 전체 버퍼를 다 복사해야함  
+      프레임 버퍼의 크기가 크다면 엄청난 시간이 걸릴 수 있음  
+      그동안 양쪽 버퍼에 읽고 쓰기가 불가능하기 때문에 제약이 큼
+
+#### 얼마나 정밀하게 버퍼링할 것인가?
+버퍼가 **하나의 데이터**인가, 아니면 **객체 컬렉션 안에 분산**되어 있는가에 따라 다름  
+(전자는 그래픽 예제, 후자는 배우 예제)  
+ - 버퍼가 한 덩어리라면
+    - 간단히 교체할 수 있음  
+      버퍼 두 개만 있기 때문에 한 번에 맞바꾸기만 하면 됨
+
+ - 여러 객체가 각종 데이터를 들고 있다면  
+    - 교체가 더 느림  
+      전체 객체 컬렉션을 순회하면서 교체하라고 알려줘야 함  
+      만약 이전 버퍼를 건드리지 않아도 된다면, 버퍼가 여러 객체에 퍼져 있어도 단일 버퍼와 같은 성능을 낼 수 있도록 간단하게 최적화할 방법이 있음  
+      현재와 다음 포인터 개념을 객체 상대적 **오프셋**으로 응용
+      ```
+      class Actor
+      {
+      public:
+        static void init() { current_ = 0; }
+        static void swap() { current_ = next(); }
+
+        void slap()        { slapped_[next()] = true; }
+        bool wasSlapped()  { return slapped_[current_]; }
+
+      private:
+        static int current_;
+        static int next()  { return 1 - current_; }
+
+        bool slapped_[2];
+      };
+      ```
+      배우는 상태 배열의 current_ 인덱스를 통해 맞은 상태에 접근  
+      다음 상태는 배열의 나머지 한 값이므로 next()로 인덱스를 계산  
+      상태 교체는 current_ 값을 바꾸기만 하면 됨  
+      여기서 swap()이 '정적' 함수이기 때문에 한 번만 호출해도 '모든'배우의 상태를 교체할 수 있다는 게 핵심  
+
+---
+---
+### CHAPTER 9. 게임 루프  
+---
+ㅁㄴㅇㄹ
 
 
 ---
