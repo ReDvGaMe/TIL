@@ -23,8 +23,8 @@
     - [바이트코드](#CHAPTER-11.-바이트코드)
     - [하위 클래스 샌드박스](#CHAPTER-12.-하위-클래스-샌드박스)
     - [타입 객체](#CHAPTER-13.-타입-객체)
-5. 디커플링 패턴
-    - 컴포넌트
+5. [디커플링 패턴](#Part-5.-디커플링-패턴)
+    - [컴포넌트](#CHAPTER-14.-컴포넌트)
     - 이벤트 큐
     - 서비스 중개자
 6. 최적화 패턴
@@ -3236,225 +3236,225 @@ protected:
 이런 패턴은 기본 아이디어는 제공하되 구체적인 부분은 많이 언급하지 않음  
 즉, 패턴을 적용할 때마다 흥미로운 선택거리가 있다는 뜻  
 
-#### 어떤 기능을 제공해야 하나?
+-  어떤 기능을 제공해야 하나?  
 가장 중요한 질문  
 이걸 어떻게 하느냐에 따라 패턴의 느낌이나 사용성이 전혀 달라짐  
 
-- 제공 기능을 **몇 안 되는 하위 클래스에서만 사용한다면 별 이득이 없음**  
-  모든 하위 클래스가 영향을 받는 상위 클래스의 복잡도는 증가하는 반면, 혜택을 받는 클래스는 몇 안 되기 때문  
+  - 제공 기능을 **몇 안 되는 하위 클래스에서만 사용한다면 별 이득이 없음**  
+    모든 하위 클래스가 영향을 받는 상위 클래스의 복잡도는 증가하는 반면, 혜택을 받는 클래스는 몇 안 되기 때문  
 
-  다른 제공 기능과 일관성을 유지하는 것도 의미는 있겠지만, 이들 특수한 하위 클래스에서 외부 시스템에 **직접 접근하는 것이 더 간단하고 명확할 수 있음**
+    다른 제공 기능과 일관성을 유지하는 것도 의미는 있겠지만, 이들 특수한 하위 클래스에서 외부 시스템에 **직접 접근하는 것이 더 간단하고 명확할 수 있음**
 
-- 다른 시스템의 함수를 호출할 때에도 그 함수가 상태를 변경하지 않는다면 크게 문제가 되지 않음  
-  커플링을 생기겠지만, 게임 내에서 다른 걸 망가뜨리지 않는다는 점에서 '안전한' 커플링임  
+  - 다른 시스템의 함수를 호출할 때에도 그 함수가 상태를 변경하지 않는다면 크게 문제가 되지 않음  
+    커플링을 생기겠지만, 게임 내에서 다른 걸 망가뜨리지 않는다는 점에서 '안전한' 커플링임  
 
-  외부 시스템의 **상태를 변경하는 함수를 호출**한다면 그 시스템과 더 강하게 결합된다는 점을 좀 더 분명히 인지해야 함  
-  이런 것들은 눈에 더 잘들어오는 **상위 클래스의 제공 기능으로** 옮겨주는 게 나을 수 있음
+    외부 시스템의 **상태를 변경하는 함수를 호출**한다면 그 시스템과 더 강하게 결합된다는 점을 좀 더 분명히 인지해야 함  
+    이런 것들은 눈에 더 잘들어오는 **상위 클래스의 제공 기능으로** 옮겨주는 게 나을 수 있음
 
-- 제공 기능이 단순히 외부 시스템으로 호출을 넘겨주는 일밖에 하지 않는다면 있어봐야 좋을 게 없음  
-  그럴 때는 하위 클래스에서 외부 메서드를 직접 호출하는 게 더 깔끔할 수 있음
+  - 제공 기능이 단순히 외부 시스템으로 호출을 넘겨주는 일밖에 하지 않는다면 있어봐야 좋을 게 없음  
+    그럴 때는 하위 클래스에서 외부 메서드를 직접 호출하는 게 더 깔끔할 수 있음
 
-  다만, 단순히 포워딩만 하는 메서드도 하위 클래스에 특정 상태를 숨길 수 있다는 장점이 있음  
-  Superpower 클래스에 다음과 같은 제공 기능이 있다고 해보자면
+    다만, 단순히 포워딩만 하는 메서드도 하위 클래스에 특정 상태를 숨길 수 있다는 장점이 있음  
+    Superpower 클래스에 다음과 같은 제공 기능이 있다고 해보자면
+    ```
+    void playSound(SoundId sound, double volume)
+    {
+      soundEngine_.play(sound, volume);
+    }
+    ```
+    playSound 함수는 Superpower의 멤버 변수인 soundEngine_의 함수로 포워딩 할 뿐  
+    그럼에도 soundEngine_을 하위 클래스에서 함부로 접근할 수 없도록 캡슐화한다는 장점이 있음
+
+- 메서드를 직접 제공할 것인가? 이를 담고 있는 객체를 통해 제공할 것인가?  
+  하위 클래스 샌드박스 패턴의 골칫거리 하나는 상위 클래스의 메서드 수가 끔찍하게 늘어난다는 점  
+  이들 메서드 일부를 다른 클래스로 옮기면 이런 문제를 완화할 수 있음  
+  상위 클래스의 제공 기능에서는 이들 객체를 반환하기만 하면 됨  
+
+  예를 들어 초능력을 쓸 때 사운드를 내기 위해 Superpwer 클래스에 메서드를 직접 추가할 수 있음
   ```
-  void playSound(SoundId sound, double volume)
+  class Superpower
   {
-    soundEngine_.play(sound, volume);
-  }
+  protected:
+    void playSound(SoundId sound, double volume)
+    {
+      // Code here...
+    }
+
+    void stopSound(SoundId sound)
+    {
+      // Code here...
+    }
+
+    void setVolume(SoundId sound)
+    {
+      // Code here...
+    }
+
+    // 샌드박스메서드와 그 외 다른 기능들...
+  };
   ```
-  playSound 함수는 Superpower의 멤버 변수인 soundEngine_의 함수로 포워딩 할 뿐  
-  그럼에도 soundEngine_을 하위 클래스에서 함부로 접근할 수 없도록 캡슐화한다는 장점이 있음
 
-#### 메서드를 직접 제공할 것인가? 이를 담고 있는 객체를 통해 제공할 것인가?
-하위 클래스 샌드박스 패턴의 골칫거리 하나는 상위 클래스의 메서드 수가 끔찍하게 늘어난다는 점  
-이들 메서드 일부를 다른 클래스로 옮기면 이런 문제를 완화할 수 있음  
-상위 클래스의 제공 기능에서는 이들 객체를 반환하기만 하면 됨  
-
-예를 들어 초능력을 쓸 때 사운드를 내기 위해 Superpwer 클래스에 메서드를 직접 추가할 수 있음
-```
-class Superpower
-{
-protected:
-  void playSound(SoundId sound, double volume)
+  하지만 Superpower 클래스가 이미 크고 복잡하다면 메서드를 이렇게 추가하고 싶진 않을 것  
+  대신 사운드 기능을 제공하는 SoundPlayer 클래스를 만듦
+  ```
+  class SoundPlayer
   {
-    // Code here...
-  }
+    void playSound(SoundId sound, double volume)
+    {
+      // Code here...
+    }
 
-  void stopSound(SoundId sound)
+    void stopSound(SoundId sound)
+    {
+      // Code here...
+    }
+
+    void setVolume(SoundId sound)
+    {
+      // Code here...
+    }
+  };
+  ```
+
+  다음으로 Superpower가 SoundPlayer 객체에 접근할 수 있게 함
+  ```
+  class Superpower
   {
-    // Code here...
-  }
+  protected:
+    SoundPlayer& getSoundPlayer()
+    {
+      return soundPlayer_;
+    }
 
-  void setVolume(SoundId sound)
+    // 샌드박스 메서드와 그 외 다른 기능들...
+
+  private:
+    SoundPlayer soundPlayer_;
+  };
+  ```
+
+  이런 식으로 제공 기능을 보조 클래스로 옮겨놓으면 다음과 같은 이점이 있음
+  - 상위 클래스의 메서드 개수를 줄일 수 있음  
+    예제에서는 메서드 세 개를 게터(getter) 하나로 줄임
+
+  - 보조 클래스에 있는 코드가 유지보수하기 더 쉬운 편  
+    Superpower 같은 핵심 상위 클래스는 자기를 의존하는 코드가 많다보니 아무리 조심해도 변경하기 쉽지 않음  
+    상위 클래스의 기능 일부를 커플링이 적은 보조 클래스로 옮기면 기능을 망치지 않고도 쉽게 고칠 수 있음
+
+  - 상위 클래스와 다른 시스템과의 커플링을 낮출 수 있음  
+    playSound()를 Superpower 클래스 메서드에 만들면, Superpower 클래스는 SoundID와 그 외 구현이 호출하는 오디오 코드와 직접 결합됨  
+    이를 SoundPlayer 클래스로 옮기면 사운드와 관련된 모든 의존 관계를 SoundPlayer 클래스 하나에 전부 캡슐화 할 수 있음
+
+- 상위 클래스는 필요한 객체를 어떻게 얻는가?  
+  상위 클래스 멤버 변수 중에는 캡슐화하고 하위 클래스로부터 숨기고 싶은 데이터가 있을 수 있음  
+  처음 본 예제에서 Superpower 클래스의 제공 기능 중에 spawnParticles()가 있었음  
+  이 함수를 구현하기 위해서 파티클 시스템 객체가 필요하다면 어떻게 얻을 수 있을까?
+
+- 상위 클래스의 생성자로 받기  
+  상위 클래스의 생성자 인수로 받으면 가장 간단함
+  ```
+  class Superpower
   {
-    // Code here...
-  }
+  public:
+    Superpower(ParticleSystem* particles)
+    : particles_(particles)
+    {}
 
-  // 샌드박스메서드와 그 외 다른 기능들...
-};
-```
+    // 샌드박스 메서드와 그 외 다른 기능들...
 
-하지만 Superpower 클래스가 이미 크고 복잡하다면 메서드를 이렇게 추가하고 싶진 않을 것  
-대신 사운드 기능을 제공하는 SoundPlayer 클래스를 만듦
-```
-class SoundPlayer
-{
-  void playSound(SoundId sound, double volume)
+  private:
+    ParticleSystem* particles_;    
+  };
+  ```
+
+  이제 모든 초능력 클래스는 생성될 때 파티클 시스템 객체를 참조하도록 강제할 수 있음  
+  하지만 하위 클래스의 경우
+  ```
+  class SkyLaunch : public Superpower
   {
-    // Code here...
-  }
+  public:
+    SkyLaunch(ParticleSystem* particles)
+    : Superpower(particles)
+    {}
+  };
+  ```
+  모든 하위 클래스 생성자는 파티클 시스템을 인수로 받아서 상위 클래스 생성자에 전달해야 함  
+  원치 않게 모든 하위 클래스에 상위 클래스의 상태가 노출됨  
 
-  void stopSound(SoundId sound)
-  {
-    // Code here...
-  }
+  상위 클래스에 다른 상태를 추가하려면 하위 클래스 생성자도 해당 상태를 전달하도록 전부 바꿔야 하기 때문에 유지보수하기에도 좋지 않음  
 
-  void setVolume(SoundId sound)
-  {
-    // Code here...
-  }
-};
-```
+- 2단계 초기화  
+  초기화를 2단계로 나누면 생성자로 모든 상태를 전달하는 번거로움을 피할 수 있음  
+  생성자는 매개변수를 받지 않고 그냥 객체를 생성, 그 후에 상위 클래스 메서드를 따로 실행해 필요한 데이터를 제공  
 
-다음으로 Superpower가 SoundPlayer 객체에 접근할 수 있게 함
-```
-class Superpower
-{
-protected:
-  SoundPlayer& getSoundPlayer()
-  {
-    return soundPlayer_;
-  }
-
-  // 샌드박스 메서드와 그 외 다른 기능들...
-
-private:
-  SoundPlayer soundPlayer_;
-};
-```
-
-이런 식으로 제공 기능을 보조 클래스로 옮겨놓으면 다음과 같은 이점이 있음
-- 상위 클래스의 메서드 개수를 줄일 수 있음  
-  예제에서는 메서드 세 개를 게터(getter) 하나로 줄임
-
-- 보조 클래스에 있는 코드가 유지보수하기 더 쉬운 편  
-  Superpower 같은 핵심 상위 클래스는 자기를 의존하는 코드가 많다보니 아무리 조심해도 변경하기 쉽지 않음  
-  상위 클래스의 기능 일부를 커플링이 적은 보조 클래스로 옮기면 기능을 망치지 않고도 쉽게 고칠 수 있음
-
-- 상위 클래스와 다른 시스템과의 커플링을 낮출 수 있음  
-  playSound()를 Superpower 클래스 메서드에 만들면, Superpower 클래스는 SoundID와 그 외 구현이 호출하는 오디오 코드와 직접 결합됨  
-  이를 SoundPlayer 클래스로 옮기면 사운드와 관련된 모든 의존 관계를 SoundPlayer 클래스 하나에 전부 캡슐화 할 수 있음
-
-#### 상위 클래스는 필요한 객체를 어떻게 얻는가?
-상위 클래스 멤버 변수 중에는 캡슐화하고 하위 클래스로부터 숨기고 싶은 데이터가 있을 수 있음  
-처음 본 예제에서 Superpower 클래스의 제공 기능 중에 spawnParticles()가 있었음  
-이 함수를 구현하기 위해서 파티클 시스템 객체가 필요하다면 어떻게 얻을 수 있을까?
-
-#### 상위 클래스의 생성자로 받기
-상위 클래스의 생성자 인수로 받으면 가장 간단함
-```
-class Superpower
-{
-public:
-  Superpower(ParticleSystem* particles)
-  : particles_(particles)
-  {}
-
-  // 샌드박스 메서드와 그 외 다른 기능들...
-
-private:
-  ParticleSystem* particles_;    
-};
-```
-
-이제 모든 초능력 클래스는 생성될 때 파티클 시스템 객체를 참조하도록 강제할 수 있음  
-하지만 하위 클래스의 경우
-```
-class SkyLaunch : public Superpower
-{
-public:
-  SkyLaunch(ParticleSystem* particles)
-  : Superpower(particles)
-  {}
-};
-```
-모든 하위 클래스 생성자는 파티클 시스템을 인수로 받아서 상위 클래스 생성자에 전달해야 함  
-원치 않게 모든 하위 클래스에 상위 클래스의 상태가 노출됨  
-
-상위 클래스에 다른 상태를 추가하려면 하위 클래스 생성자도 해당 상태를 전달하도록 전부 바꿔야 하기 때문에 유지보수하기에도 좋지 않음  
-
-#### 2단계 초기화
-초기화를 2단계로 나누면 생성자로 모든 상태를 전달하는 번거로움을 피할 수 있음  
-생성자는 매개변수를 받지 않고 그냥 객체를 생성, 그 후에 상위 클래스 메서드를 따로 실행해 필요한 데이터를 제공  
-
-```
-Superpower* power = new SkyLaunch();
-power->init(particles);
-```
-
-SkyLaunch 클래스 생성자에는 인수가 없기 때문에 Superpower 클래스가 private으로 숨겨놓은 멤버 변수와 전혀 커플링되지 않음  
-단, 까먹지 말고 init()을 호출해야 한다는 문제가 있음  
-이걸 빼먹으면 초능력 인스턴스의 상태가 완전치 않아 제대로 작동하지 않을 수 있음  
-
-이런 문제는 객체 생성 과정 전체를 한 함수로 캡슐화하면 해결 가능
-```
-Superpower* createSkyLaunch(ParticleSystem* particles)
-{
+  ```
   Superpower* power = new SkyLaunch();
   power->init(particles);
-  return power;
-}
-```
+  ```
 
-#### 정적 객체로 만들기
-앞에서는 초능력 인스턴스별로 파티클 시스템 초기화를 했음  
-모든 초능력 인스턴스가 별도의 파티클 객체를 필요로 한다면 말이 되나, 파티클 시스템이 싱글턴이라면 어차피 모든 초능력 인스턴스가 같은 상태를 공유할 것  
+  SkyLaunch 클래스 생성자에는 인수가 없기 때문에 Superpower 클래스가 private으로 숨겨놓은 멤버 변수와 전혀 커플링되지 않음  
+  단, 까먹지 말고 init()을 호출해야 한다는 문제가 있음  
+  이걸 빼먹으면 초능력 인스턴스의 상태가 완전치 않아 제대로 작동하지 않을 수 있음  
 
-이럴 때는 상위 클래스의 private 정적 멤버 변수로 만들 수 있음  
-여전히 초기화는 필요하지만 인스턴스마다 하지 않고 초능력 클래스에서 한 번만 초기화하면 됨  
-
-```
-class Superpower
-{
-public:
-  static void init(ParticleSystem* particles)
+  이런 문제는 객체 생성 과정 전체를 한 함수로 캡슐화하면 해결 가능
+  ```
+  Superpower* createSkyLaunch(ParticleSystem* particles)
   {
-    particles_ = particles;
+    Superpower* power = new SkyLaunch();
+    power->init(particles);
+    return power;
   }
+  ```
 
-  // 샌드박스 메서드와 그 외 다른 기능들...
+- 정적 객체로 만들기  
+  앞에서는 초능력 인스턴스별로 파티클 시스템 초기화를 했음  
+  모든 초능력 인스턴스가 별도의 파티클 객체를 필요로 한다면 말이 되나, 파티클 시스템이 싱글턴이라면 어차피 모든 초능력 인스턴스가 같은 상태를 공유할 것  
 
-private:
-  static ParticleSystem* particles_;
-};
-```
+  이럴 때는 상위 클래스의 private 정적 멤버 변수로 만들 수 있음  
+  여전히 초기화는 필요하지만 인스턴스마다 하지 않고 초능력 클래스에서 한 번만 초기화하면 됨  
 
-여기에서 init()과 paricles_은 모두 정적  
-Superpower::init()을 미리 한 번 호출 해놓으면 모든 초능력 인스턴스에서 같은 파티클 시스템에 접근할 수 있음  
-하위 클래스 생성자만 호출하면 Superpower 인스턴스를 그냥 만들 수 있음  
-
-particles_가 정적 변수이기 때문에 초능력 인스턴스별로 파티클 객체를 따로 저장하지 않아 메모리 사용량을 줄일 수 있다는 것도 장점  
-
-#### 서비스 중개자를 이용
-앞에서는 상위 클래스가 필요로 하는 객ㅊ체를 먼저 넣어주는 작업을 밖에서 잊지 말고 해줘야 했음  
-즉, 초기화 부담을 외부 코드로 넘기고 있음  
-만약 상위 클래스가 원하는 객체를 직접 가져올 수 있다면 스스로 초기화 할 수 있음  
-이런 방법 중의 하나가 서비스 중개자 패턴(16장)  
-
-```
-class Superpower
-{
-protected:
-  void spawnParticles(ParticleType type, int count)
+  ```
+  class Superpower
   {
-    ParticleSystem& particles = Locator::getParticles();
-    particles.spawn(type, count);
-  }
+  public:
+    static void init(ParticleSystem* particles)
+    {
+      particles_ = particles;
+    }
 
-  // 샌드박스 메서드와 그 외 다른 기능들...
-};
-```
-여기서 spawnParicles()는 필요로 하는 파티클 시스템 객체를 이부 코드에서 전달받지 않고 직접 서비스 중개자(Locator 클래스)에서 가져옴
+    // 샌드박스 메서드와 그 외 다른 기능들...
+
+  private:
+    static ParticleSystem* particles_;
+  };
+  ```
+
+  여기에서 init()과 paricles_은 모두 정적  
+  Superpower::init()을 미리 한 번 호출 해놓으면 모든 초능력 인스턴스에서 같은 파티클 시스템에 접근할 수 있음  
+  하위 클래스 생성자만 호출하면 Superpower 인스턴스를 그냥 만들 수 있음  
+
+  particles_가 정적 변수이기 때문에 초능력 인스턴스별로 파티클 객체를 따로 저장하지 않아 메모리 사용량을 줄일 수 있다는 것도 장점  
+
+- 서비스 중개자를 이용
+  앞에서는 상위 클래스가 필요로 하는 객ㅊ체를 먼저 넣어주는 작업을 밖에서 잊지 말고 해줘야 했음  
+  즉, 초기화 부담을 외부 코드로 넘기고 있음  
+  만약 상위 클래스가 원하는 객체를 직접 가져올 수 있다면 스스로 초기화 할 수 있음  
+  이런 방법 중의 하나가 서비스 중개자 패턴(16장)  
+
+  ```
+  class Superpower
+  {
+  protected:
+    void spawnParticles(ParticleType type, int count)
+    {
+      ParticleSystem& particles = Locator::getParticles();
+      particles.spawn(type, count);
+    }
+
+    // 샌드박스 메서드와 그 외 다른 기능들...
+  };
+  ```
+  여기서 spawnParicles()는 필요로 하는 파티클 시스템 객체를 이부 코드에서 전달받지 않고 직접 서비스 중개자(Locator 클래스)에서 가져옴
 
 ---
 ---
@@ -3613,14 +3613,709 @@ C++같은 타입 시스템은 컴파일러가 클래스를 위한 일을 알아�
 파일에서 데이터를 읽어 이들 패턴으로 자료구조를 만들면 동작 정의를 코드에서 데이터로 완전히 옮길 수 있음
 
 #### 13.6 예제 코드
+앞에서 본 시스템의 기본을 구현  
+Breed 클래스
+```
+class Breed
+{
+public:
+  Breed(int health, const char* attack)
+  : health_(health),
+    attack_(attack)
+  {}
 
+  int getHealth() { return health_; }
+  const char* getAttack() { return attack_; }
 
+private:
+  int health_; // Starting health.
+  const char* attack_;
+};
+```
 
+Breed 클래스에는 최대 체력(health_)와 공격 문구(attack_) 필드 두 개만 있음  
+Monster 클래스에서 Breed 클래스를 어떻게 쓰는지 보자  
+```
+class Monster
+{
+public:
+  Monster(Breed& breed)
+  : health_(breed.getHealth()),
+    breed_(breed)
+  {}
 
+  const char* getAttack()
+  {
+    return breed_.getAttack();
+  }
 
+private:
+  int    health_; // Current health.
+  Breed& breed_;
+};
+```
 
+Monster 클래스 생성자는 Breed 객체를 레퍼런스로 받음  
+이를 통해 상속 없이 몬스터 종족을 정의함  
+최대 체력은 생성자에서 breed 인수를 통해 얻음  
+공격 문구는 breed_에 포워딩해서 얻음  
 
+여기까지가 타입 객체 패턴의 핵심  
+나머지 내용은 덤
 
+#### 생성자 함수를 통해 타입 객체를 좀 더 타입같이 만들기
+이제까지는 몬스터를 만들고 그 몬스터에 맞는 종족 객체도 직접 전달함  
+이런 방식은 메모리를 먼저 할당한 후에 그 메모리 영역에 클래스를 할당하는 것과 다를 바 없음  
+
+대부분의 OOP 언어에서는 이런 식으로 객체를 만들지 않음  
+대신, 클래스의 생성자 함수를 호출해 클래스가 알아서 새로운 인스턴스를 생성하게 함  
+
+```
+class Breed
+{
+public:
+  Monster* newMonster() { return new Monster(*this); }
+
+  // 나머지는 동일
+};
+```
+
+Monster 클래스는 다음과 같이 바뀜
+```
+class Monster
+{
+  friend class Breed;
+
+public:
+  const char* getAttack() { return breed_.getAttack(); }
+
+private:
+  Monster(Breed& breed)
+  : health_(breed.getHealth()),
+    breed_(breed)
+  {}
+
+  int health_; // Current health.
+  Breed& breed_;
+};
+```
+가장 큰 차이점은 Breed 클래스의 newMonster 함수  
+이게 팩토리 메서드 패턴의 '생성자'
+
+이전 코드에서는 `Monster* monster = new Monster(someBreed);` 으로 몬스터를 생성했다면  
+수정하고 나면 `Monster* monster = someBreed.newMonster();` 으로 몬스터를 생성함  
+
+이렇게 하면 객체는 메모리 할당과 초기화 2단게로 생성됨  
+Monster 클래스 생성자 함수에서 필요한 모든 초기화 작업을 다 할 수 있음  
+예제에서는 breed 객체를 전달하는 게 초기화의 전부지만, 실제 프로젝트에서는 그래픽을 로딩하고, 몬스터 AI를 설정하는 등 다른 초기화 작업이 많이 있을 수 있음  
+
+하지만 이런 초기화 작업은 메모리를 할당한 다음에 진행됨  
+아직 제대로 초기화되지 않은 몬스터가 메모리에 먼저 올라가 있는 것  
+게임에서는 객체 생성 과정을 제어하고 싶을 때가 종종 있는데, 그럴 때는 보통 커스텀 할당자나 객체 풀 패턴(19장)을 이용해 객체가 메모리 어디에 생성될지를 제어함  
+
+Breed 클래스에 '생성자' 함수를 정의하면 이런 로직을 둘 곳이 생김  
+그냥 new를 호출하는게 아니라 newMonster 함수를 호출하면 Monster 클래스에 초기화 제어권을 넘겨주기 전에 메모리 풀이나 커스텀 힙에서 메모리를 가져올 수 있음  
+몬스터를 생성할 수 있는 유일한 곳인 Breed 클래스 안에 이런 로직을 둠으로써, 모든 몬스터가 정해놓은 메모리 관리 루틴을 따라 생성되도록 강제할 수 있음
+
+#### 상속으로 데이터 공유하기
+여러 개의 비슷한 종족을 수정하거나 만들면 상당히 많은 데이터를 반복해서 고쳐야함  
+이럴 땐 종족을 통해 여러 몬스터가 속성을 공유했던 것처럼 여러 종족이 속성 값을 공유할 수 있게 만들면 좋음
+상속을 통해 속성 값을 공유할 수 있는데, 이번에는 프로그래밍 언어의 상속 기능이 아닌 타입 객체들끼리 상속할 수 있는 시스템을 직접 구현할 것  
+
+```
+class Breed
+{
+public:
+  Breed(Breed* parent, int health, const char* attack)
+  : parent_(parent),
+    health_(health),
+    attack_(attack)
+  {}
+
+  int         getHealth();
+  const char* getAttack();
+
+private:
+  Breed*      parent_;
+  int         health_; // Starting health.
+  const char* attack_;
+};
+```
+Breed 객체를 만들 땐 상속받을 종족 객체를 넘겨줌  
+상위 종족이 없는 최상위 종족은 parent에 NULL을 전달  
+
+하위 객체는 어떤 속성을 상위 객체로부터 받을지, 자기 값으로 오버라이드할지를 제어할 수 있어야함  
+예제에서는 최대 체력이 0이 아닐 때, 공격 문구가 NULL이 아닐 때는 자기 값을 쓰고, 아니면 상위 객체 값을 쓰기로함  
+
+두 가지 방식으로 구현할 수 있음  
+속성 값을 요청받을 때마다 동적으로 위임하는 방식
+```
+int Breed::getHealth()
+{
+  // Override. 오버라이딩
+  if (health_ != 0 || parent_ == NULL) return health_;
+
+  // Inherit. 상속
+  return parent_->getHealth();
+}
+
+const char* Breed::getAttack()
+{
+  // Override. 오버라이딩
+  if (attack_ != NULL || parent_ == NULL) return attack_;
+
+  // Inherit. 상속
+  return parent_->getAttack();
+}
+```
+
+이 방법은 종족이 특정 속성 값을 더 이상 오버라이드하지 않거나 상속받지 않도록 런타임에 바뀔 때 좋음  
+메모리를 더 차지하고(상위 객체 포인트 유지를 위해), 속성 값을 반환할때마다 상위 객체들을 줄줄이 확인해보느라 더 느리다는 단점이 있음  
+
+종족 속성 값이 바뀌지 않는다면 생성 시점에 바로 상속을 적용할 수 있음, 이런 걸 **'카피다운'위임** 이라고 함  
+객체가 생성될 때 상속받는 속성 값을 하위 타입으로 **복사**해서 넣기 때문  
+
+```
+Breed(Breed* parent, int health, const char* attack)
+: health_(health),
+  attack_(attack)
+{
+  // Inherit non-overridden attributes.
+  if (parent != NULL)
+  {
+    if (health == 0) health_ = parent->getHealth();
+    if (attack == NULL) attack_ = parent->getAttack();
+  }
+}
+```
+더 이상 상위 종족 객체를 포인터로 들고 있지 않아도 됨  
+생성자에서 상위 속성을 전부 복사했기 때문  
+따라서 종족 속성 값을 반환할 때에는 필드 값을 그대로 쓰면 됨
+```
+int         getHealth() { return health_; }
+const char* getAttack() { return attack_; }
+```
+
+#### 13.7 디자인 결정
+타입 객체 패턴에서는 타입 시스템을 마음대로 만들 수 있어서 설계의 폭이 넓고 여러 가지 재미있는 시도를 해볼 수 있음  
+하지만 현실적으로는 가능성이 많이 제한됨  
+시스템이 복잡하면 개발 기간이 늘어나고, 유지보수하기가 어려워짐  
+게다가 타입 객체 시스템은 프로그래머가 만들더라도, 사용자는 프로그래머가 아닌 경우가 많아서 이해하기 쉽게 만들어야함  
+따라서 간단할수록 사용성이 좋음  
+
+- **타입 객체를 숨길 것인가? 노출할 것인가?**  
+  앞에서 Monster 클래스는 Breed 객체를 참조하지만 이를 외부에 노출하지 않아 외부 코드에서 몬스터 종족 객체를 직접 접근할 수 없었음  
+  몬스터가 종족 객체를 들고 있다는 사실은 상세 구현에 해당하기 때문에 외부 코드 입장에서는 몬스터에 따로 타입이 없어보임  
+
+  물론 Monster 클래스가 Breed 객체를 반환하도록 쉽게 바꿀 수 있음
+  ```
+  class Monster
+  {
+  public:
+    Breed& getBreed() { return breed_; }
+
+    // Existing code...
+  };
+  ```
+
+  이러면 Monster 클래스의 설계가 바뀜
+
+  - 타입 객체를 캡슐화하면
+    - 타입 객체 패턴의 복잡성이 나머지 다른 코드에는 드러나지 않음  
+  
+    - 타입 사용 객체는 타입 객체로부터 동작을 선택적으로 오버라이드 할 수 있음  
+      몬스터가 거의 죽어갈 때 다른 공격 문구를 보여주고 싶다고 할 때, 다음과 같은 코드를 쉽게 추가할 수 있음  
+      ```
+      const char* Monster::getAttack()
+      {
+        if (health_ < LOW_HEALTH)
+        {
+          return "몬스터가 힘없이 팔을 휘두릅니다.";
+        }
+
+        return breed_.getAttack();
+      }
+      ```
+      외부 코드에서 Breed() 객체의 getAttack()을 바로 호출하는 경우는 이런 코드를 추가할 만한 곳이 없음
+    - 타입 객체 메서드를 전부 포워딩 해야함  
+      굉장히 귀찮은 일, 타입 객체 클래스에 메서드가 많다면 타입 사용 객체 클래스에서 외부에 공개하고 싶은 메서드 전부에 대해 포워딩 메서드를 만들어야 함
+  - 타입 객체를 노출하면
+    - 타입 사용 클래스 인스턴스를 통하지 않고도 외부에서 타입 객체에 접근할 수 있음  
+      타입 사용 객체 없이도 타입 객체인 Breed 메서드를 호출해 새로운 몬스터를 생성할 수 있음
+
+    - 타입 객체가 공개 API의 일부가 됨  
+      일반적으로 인터페이스를 적게 노출할수록 복잡성은 줄어들고 유지보수하기는 좋아짐  
+      타입 객체를 노출함으로써, 타입 객체가 제공하는 모든 것이 객체 API에 포함됨
+
+- **타입 사용 객체를 어떻게 생성할 것인가?**  
+  - 객체를 생성한 뒤에 타입 객체를 넘겨주는 경우  
+    - 외부 코드에서 메모리 할당을 제어할 수 있음  
+      두 객체 모두 외부에서 생성하기 때문에, 메모리 어디에서 할당할지를 결정할 수 있음  
+      덕분에 객체를 여러 다른 메모리(커스텀 메모리 할당자, 스택 등)에 둘 수 있음
+
+  - 타입 객체의 '생성자' 함수를 호출하는 경우  
+    - 타입 객체에서 메모리 할당을 제어함  
+      아까와는 반대 개념  
+      외부에서 타입 객체를 어느 메모리에 생성할지 선택권을 주고 싶지 않다면,  
+      타입 객체 팩토리 메서드를 통해서 객체를 만들게 해 메모리를 제어할 수 있음  
+      모든 객체를 특정 객체 풀이나 다른 메모리 할당자에서만 생성하도록 제한하고 싶을 때 좋음
+
+- **타입을 바꿀 수 있는가?**  
+  객체가 필요하면 타입을 변경하게 할 수도 있음  
+  예를 들어 어떤 몬스터는 죽은 뒤에 좀비로 되살아나게 하고 싶다고 할 때  
+  몬스터가 죽을 때 종족이 좀비인 몬스터를 새로 만들 수도 있지만,  
+  기존 몬스터의 종족을 좀비로 바꾸는 방법도 있음  
+  - 타입을 바꿀 수 없다면  
+    - 코드를 구현하고 이해하기가 더 쉬움  
+      개념상 '타입'은 바뀌지 않는다고 다들 생각하는데, 이런 가정을 코드로 못 박음  
+
+    - 디버깅하기 쉬움  
+      몬스터의 상태가 이상해지는 버그를 찾아야 할 때 종족은 변하지 않는다고 가정할 수 있다면 디버깅이 쉬워짐
+  - 타입을 바꿀 수 있다면  
+    - 객체 생성 횟수가 줄어듬  
+      위 예제에서 타입을 바꿀 수 없다면 좀비 몬스터를 만들고 기존 몬스터로부터 유지해야 할 속성 값을 가져운 뒤에 기존 몬스터를 삭제해야 하는 낭비가 생김  
+      타입을 바꿀 수 있다면 타입 객체 포인터 값만 바꾸면 됨  
+
+    - 가정을 깨지 않도록 주의해야 함  
+      타입 사용 객체와 타입 객체는 상당히 강하게 커플링 됨  
+      예를 들어 몬스터의 현제 체력이 해당 종족의 최대 체력보다는 더 클 수 없다고 가정할 수 있음  
+      종족 타입을 바꿀 수 있다면 기존 객체 상태를 새로운 타입의 요구사항에 맞춰야 함  
+      이를 위해 검증 코드가 필요할 수도 있음
+
+- **상속을 어떻게 지원할 것인가?**
+  - 상속 없음  
+    - 단순함  
+      타입 객체끼리 공유해야 할 데이터가 그리 많지 않다면 코드가 단순해짐  
+
+    - 중복 작업을 해야 할 수도 있음  
+      
+  - 단일 상속  
+    - 그나마 단순한 편  
+      구현하기도 쉽지만 이애하기 쉽다는 게 더 중요  
+      사용자의 기술적 이해도가 낮다면 손댈 곳이 적을수록 좋음  
+
+    - 속성 값을 얻는 데 오래 걸림  
+      타입 객체로부터 원하는 데이터를 얻으려면 실제로 값을 정의한 타입을 찾을 때까지 상속 구조를 타고 올라가야함  
+      성능이 민감한 코드에서 이런 식의 런타임 낭비는 바람직하지 않음
+
+  - 다중 상속  
+    - 거의 모든 데이터 중복을 피할 수 있음  
+      
+    - 복잡함  
+      다중 상속의 장점은 실무보다는 이론에 가까움  
+      좀비 용 타입은 좀비와 용을 상속받는 다고 해보면  
+      어떤 속성은 좀비로부터 받고, 어떤 속성은 용으로부터 받아야 할까?  
+      다중 상속 시스템을 사용하려면 사용자가 상속 그래프의 흐름을 이해할 수 있어야 하고, 상속 구조를 잘 설계할 수 있는 선경지명을 가져야함  
+      고민해볼 가치는 있겠지만, 게임에서 타입 객체에 다중 상속이 필요한 경우는 굉장히 드물 것  
+      언제나 그렇듯 단순한게 나음
+
+---
+---
+## Part 5. 디커플링 패턴  
+---
+### CHAPTER 14. 컴포넌트
+---
+#### 14.1, 14.2 의도, 동기
+한 개체가 여러 분야를 서로 커플링 없이 다룰 수 있게 함  
+
+플랫포머 게임을 만든다고 가정해보자  
+먼저 주인공을 대표하는 클래스를 하나 만들어서 주인공이 게임에서 하는 모든 것들을 넣는게 당연해 보임  
+
+주인공을 조정해야 하니 컨트롤러 입력 값을 읽어 행동으로 바꾸어야 함  
+지형이나 플랫폼 같은 레벨과도 상호작용할 수 있도록 물리 및 충돌 처리도 필요함  
+주인공이 화면에 나와야 하니 애니메이션과 렌더링도 넣어야함  
+물론 소리도 들려야함  
+
+이런식으로 엉망진창이되면 안됨  
+분야가 서로 다른 코드는 서로 격리하는 것이 좋음  
+
+AI, 물리, 렌더링, 사운드처럼 분야가 다른 코드끼리는 최대한 서로 모르는게 좋음  
+이런 코드를 한 클래스 안에 전부 넣는다면 최악의 소스가 될것임  
+클래스가 크다는 것은 정말 사소한 걸 바꾸려고 해도 엄청난 작업이 필요할 수 있음을 의미  
+이런 클래스는 기능보다 버그가 더 빨리 늘어나게 됨
+
+#### 고르디우스의 매듭
+코드 길이보다 더 큰 문제가 커플링  
+여러 게임 시스템이 주인공 클래스 안에서 실타래처럼 얽혀 있음
+```
+if (collidingWithFloor() && (getRenderState() != INVISIBLE))
+{
+  playSound(HIT_FLOOR);
+}
+```
+
+이 코드를 문제없이 고치려면 물리(collidingWithFloor), 그래픽(getRenderState), 사운드(playSound)를 전부 알아야 함  
+
+커플링과 코드 길이 문제는 서로 악영향을 미침  
+한 클래스가 너무 많은 분야를 건드리다보니 모든 프로그래머가 그 클래스를 작업해야 하는데, 클래스가 너무 크다 보니 작업하기가 굉장히 어려움  
+이런 상황이 심해지면 프로그래머들이 뒤죽박죽 된 주인공 클래스를 손대기싫어서 다른 곳에 땜빵 코드를 넣기 시작함  
+
+#### 매듭 끊기
+이 문제는 한 덩어리였던 주인공 클래스를 분야에 따라 여러 부분으로 나누면 됨  
+
+예를 들어 사용자 입력에 관련된 코드는 InputComponent 클래스로 옮겨둔 뒤에, 주인공 클래스가 InputComponent 인스턴스를 갖게 함
+주인공 클래스가 다루는 나머지 분야에도 이런 작업을 반복  
+이런 작업을 거치게되면 컴포넌트를 묶는 얇은 껍데기 코드 외에는 주인공 클래스에 남는 게 거의 없게됨  
+
+클래스 코드 크기 문제는 클래스를 여러 작은 클래스로 나누는 것만으로 해결했고, 소득은 이뿐만이 아님
+
+#### 열린 구조
+컴포넌트 클래스들은 디커플링 되어있음  
+PhysicsComponent와 GraphicsComponent는 주인공 클래스 안에 들어 있지만 서로에 대해 알지 못함  
+즉, 물리 프로그래머는 화면 처리는 신경쓰지 않고 자기 코드를 수정할 수 있고, 반대도 마찬가지임  
+
+현실적으로는 컴포넌트끼리 상호작용이 필요할 **수도** 있음  
+예를 들어 AI 컴포넌트는 주인공이 가려는 곳을 물리 컴포넌트를 통해 알아내야 할 수도 있음  
+다만 모든 코드를 한 곳에 섞어놓지 않았기 때문에 서로 **통신이 필요한** 컴포넌트만으로 결합을 재현할 수 있음  
+
+#### 다시 합치기
+컴포넌트 패턴의 다른 특징은 이렇게 만든 컴포넌트를 재사용할 수 있다는 점  
+주인공 외에도 게임에 필요한 다른 객체들을 생각해보자면  
+
+데커레이션은 덤불이나 먼지같이 볼 수는 있으나 상호작용은 할 수 없는 객체  
+프랍은 상자, 바위, 나무같이 볼 수 있으면서 상호작용도 할 수 있는 객체  
+존은 데커레이션과는 반대로 보이지는 않지만 상호작용은 할 수 있는 객체  
+
+예를 들어 주인공이 특정 영역에 들어올 때 컷신을 틀고 싶다면 존은 써먹을 수 있음  
+
+컴포넌트를 쓰지 않는다면 이들 클래스를 어떻게 상속해야 할까?  
+![image](https://user-images.githubusercontent.com/32252062/74633573-3d698280-51a5-11ea-86bd-e42ef52759f5.png)
+(그림 14-1) 단일 상속으로는 두 갈래를 동시에 재사용할 수 없음  
+
+GameObject 클래스는 위치나 방향 같은 기본 데이터를 둠  
+Zone은 GameObject을 상속받은 뒤에 충돌 검사를 추가함  
+Decoration도 GameObject를 상속받은 뒤 렌더링 기능을 추가함  
+Prop은 충돌 검사를 재사용하기 위해 Zone을 상속받음  
+하지만 Prop이 렌더링 코드를 재사용하기 위해 Decoration 클래스를 상송하려는 순간 '**죽음의 다이아몬드**' 라고 불리는 다중 상속 문제를 피할 수 없음
+
+뒤집어서 Prop이 Decoration을 상속받게 만들어봐야 충돌 처리 코드 중복은 피할 수 없음  
+어떻게 해도 다중 상속 없이는 충돌 처리 코드와 렌더링 코드를 깔끔하게 재사용할 수는 없음  
+아니면 모든 기능을 GameObject 클래스에 올려놔야 하는데, 그러면 Zone에는 필요 없는 렌더링 데이터가 들어가고 Decoration에는 쓰지 않는 물리 기능이 들어가게 됨
+
+이것을 컴포넌트로 만들면 상속은 전혀 필요없음  
+GameObject 클래스 하나와 PhysicsComponent, GraphicsComponent 클래스 두 개만 있으면 됨  
+데커레이션은 GraphicsComponent는 있고, PhysicsComponent는 없는 GameObject이고,  
+반대로 존에는 PhysicsComponent가 있고, GraphicsComponent는는 없음  
+프랍에는 둘 다 있음  
+여기에는 코드 중복도, 다중 상속도 없고, 클래스 개수도 네 개에서 세 개로 줄음  
+
+컴포넌트는 기본적으로 객체를 위한 플러그 앤 플레이라고 볼 수 있음  
+개체 소켓에 재사용 가능한 여러 컴포넌트 객체를 꽂아 넣음으로써 복잡하면서 기능이 풍부한 개체를 만들 수 있음
+
+#### 14.3 패턴
+**여러 분야를 다루는 하나의 개체**가 있음  
+분야별로 격리하기 위해, 각각의 코드를 별도의 **컴포넌트 클래스**에 둠  
+이제 개체 클래스는 단순히 이들 **컴포넌트들의 컨테이너** 역할만 함
+
+#### 14.4 언제 쓸 것인가?
+컴포넌트는 게임 개체를 정의하는 핵심 클래스에서 가장 많이 사용되지만, 다음 조건 중 하나라도 만족한다면 다른 분야에서도 유용하게 쓸 수 있음  
+- 한 클래스에서 여러 분야를 건드리고 있어서, 이들을 서로 디커플링하고 싶음  
+
+- 클래스가 거대해져서 작업하기 어려움
+
+- 여러 다른 기능을 공유하는 다양한 객체를 정의하고 싶음   
+단, 상속으로 딱 원하는 부분만 골라서 재사용할 수가 없음
+
+#### 14.5 주의사항
+컴포넌트 패턴을 적용하면 클래스 하나에 코드를 모아놨을 때보다 더 복잡해질 가능성이 높음  
+한 무리의 객체를 생성하고 초기화하고 알맞게 묶어줘야 하나의 개념적인 '객체'를 만들 수 있기 때문
+컴포넌트끼리 통신하기도 더 어렵고, 컴포넌트들을 메모리 어디에 둘지 제어하는 것도 더 복잡함  
+
+코드베이스 규모가 크면 이런 복잡성에서 오는 손해보다 디커플링과 컴포넌트를 통한 코드 재사용에서 얻는 이득이 더 클 수 있음  
+하지만 컴포넌트 패턴을 적용하기 전에 아직 있지도 않은 문제에 대한 '해결책'을 오버엔지니어링하는건 아닌지 주의해야 함  
+
+컴포넌트 패턴의 또 다른 문제는 무엇이든지 하려면 한 단계를 거쳐야 할 떄가 많다는 점  
+무슨 일이든 컨테이너 객체에서 원하는 컴포넌트부터 얻어야 할 수 있음  
+성능이 민감한 내부 루프 코드에서 이런 식으로 포인터를 따라가다 보면 성능이 떨어질 수 있음
+
+#### 14.6 예제 코드
+#### 통짜 클래스
+컴포넌트 패턴을 어떻게 적용할지를 더 명확하게 알 수 있도록, 먼저 컴포넌트 패턴을 아직 적용하지 않아 모든 기능이 통짜 클래스에 다 들어 있는 주인공(Bjorn)클래스
+```
+class Bjorn
+{
+public:
+  Bjorn()
+  : velocity_(0),
+    x_(0), y_(0)
+  {}
+
+  void update(World& world, Graphics& graphics);
+
+private:
+  static const int WALK_ACCELERATION = 1;
+
+  int velocity_;
+  int x_, y_;
+
+  Volume volume_;
+
+  Sprite spriteStand_;
+  Sprite spriteWalkLeft_;
+  Sprite spriteWalkRight_;
+};
+```
+
+Bjorn 클래스의 update 메서드는 매 프레임마도 호출됨
+```
+void Bjorn::update(World& world, Graphics& graphics)
+{
+  // 입력에 따라 주인공의 속도를 조절
+  switch (Controller::getJoystickDirection())
+  {
+    case DIR_LEFT:
+    velocity_ -= WALK_ACCELERATION;
+    break;
+
+    case DIR_RIGHT:
+    velocity_ += WALK_ACCELERATION;
+    break;
+  }
+
+  // 속도에 따라 위치를 바꿈
+  x_ += velocity_;
+  world.resolveCollision(volume_, x_, y_, velocity_);
+
+  // 알맞은 스프라이트를 그림
+  Sprite* sprite = &spriteStand_;
+  if (velocity_ < 0)
+  {
+    sprite = &spriteWalkLeft_;
+  }
+  else if (velocity_ > 0)
+  {
+    sprite = &spriteWalkRight_;
+  }
+
+  graphics.draw(*sprite, x_, y_);
+}
+```
+
+이 코드는 조이스틱 입력에 따라 주인공을 가속함  
+다음으로 물리 엔진을 통해 주인공의 다음 위치를 구한 뒤,  
+마지막으로 화면에 주인공인 비외른을 그림  
+
+구현은 굉장히 간단해서 중력도 애니메이션도, 여러 상세한 구현도 다 빠져있음  
+그럼에도 코드를 보면 update 함수 하나를 여러 분야의 프로그래머가 작업해야 하고 코드가 더러워지기 시작했다는 것을 알 수 있음  
+이런 코드가 몇천 줄이 넘어가면 작업하기 힘들어질 것
+
+#### 분야별로 나누기
+먼저 분야 하나를 정해서 관련 코드를 Bjorn에서 별도의 컴포넌트 클래스로 옮김  
+가장 먼저 처리되는 입력 분야부터 시작  
+Bjorn클래스가 처음 하는 일은 사용자 입력에 따라 주인공의 속도를 조절하는 처리  
+그에 해당하는 로직을 별개의 클래스로 옮김
+```
+class InputComponent
+{
+public:
+  void update(Bjorn& bjorn)
+  {
+    switch (Controller::getJoystickDirection())
+    {
+      case DIR_LEFT:
+        bjorn.velocity -= WALK_ACCELERATION;
+        break;
+
+      case DIR_RIGHT:
+        bjorn.velocity += WALK_ACCELERATION;
+        break;
+    }
+  }
+
+private:
+  static const int WALK_ACCELERATION = 1;
+};
+```
+
+어렵게 할 거 없이 Bjorn 클래스의 update 메서드에서 앞부분을 InputComponent 클래스로 옮김  
+Bjorn 클래스는 다음과 같이 바뀜
+```
+class Bjorn
+{
+public:
+  int velocity;
+  int x, y;
+
+  void update(World& world, Graphics& graphics)
+  {
+    input_.update(*this);
+
+    // 속도에 따라 위치를 바꿈
+    x += velocity;
+    world.resolveCollision(volume_, x, y, velocity);
+
+    // 알맞은 스프라이트를 그림
+    Sprite* sprite = &spriteStand_;
+    if (velocity < 0)
+    {
+      sprite = &spriteWalkLeft_;
+    }
+    else if (velocity > 0)
+    {
+      sprite = &spriteWalkRight_;
+    }
+
+    graphics.draw(*sprite, x, y);
+  }
+
+private:
+  InputComponent input_;
+
+  Volume volume_;
+
+  Sprite spriteStand_;
+  Sprite spriteWalkLeft_;
+  Sprite spriteWalkRight_;
+};
+```
+
+Bjorn 클래스에 InputComponent 객체가 추가됨  
+이전에는 사용자 입력을 update()에서 처리했지만, 지금은 입력 컴포넌트에 위임함  
+`input_.update(*this);`  
+
+#### 나머지도 나누기
+이제 남아 있는 물리 코드와 그래픽스 코드도 같은 식으로 복아 & 붙여넣기를 함
+```
+class PhysicsComponent
+{
+public:
+  void update(Bjorn& bjorn, World& world)
+  {
+    bjorn.x += bjorn.velocity;
+    world.resolveCollision(volume_,
+        bjorn.x, bjorn.y, bjorn.velocity);
+  }
+
+private:
+  Volume volume_;
+};
+```
+물리 코드를 옮기고 보니 물리 데이터도 같이 옮겨짐  
+이제 Volume 객체는 Bjorn이 아닌 PhysicsComponent에서 관리함
+
+마지막으로 렌더링 코드를 옮김
+```
+class GraphicsComponent
+{
+public:
+  void update(Bjorn& bjorn, Graphics& graphics)
+  {
+    Sprite* sprite = &spriteStand_;
+    if (bjorn.velocity < 0)
+    {
+      sprite = &spriteWalkLeft_;
+    }
+    else if (bjorn.velocity > 0)
+    {
+      sprite = &spriteWalkRight_;
+    }
+
+    graphics.draw(*sprite, bjorn.x, bjorn.y);
+  }
+
+private:
+  Sprite spriteStand_;
+  Sprite spriteWalkLeft_;
+  Sprite spriteWalkRight_;
+};
+```
+
+Bjorn 클래스에서 거의 모든 코드를 뽑아냄  
+```
+class Bjorn
+{
+public:
+  int velocity;
+  int x, y;
+
+  void update(World& world, Graphics& graphics)
+  {
+    input_.update(*this);
+    physics_.update(*this, world);
+    graphics_.update(*this, graphics);
+  }
+
+private:
+  InputComponent input_;
+  PhysicsComponent physics_;
+  GraphicsComponent graphics_;
+};
+```
+
+이렇게 바뀐 Bjorn 클래스는 두 가지 역할을 함  
+먼저 자신을 정의하는 컴포넌트 집합을 관리하고, 컴포넌트들이 공유하는 상태를 들고 있는 역할  
+위치 (x, y)와 속도 (velocity) 값을 Bjorn 클래스에 남겨놓은 이유는 두 가지는 다음과 같음  
+먼저, 이들 상태는 '전 분야'에서 사용됨  
+컴포넌트로 옮기고 싶어도 거의 모든 컴포넌트에서 이 값을 사용하다 보니 어느 컴포넌트에 둘지 애매함  
+
+그보다 더 중요한 이유는 이렇게 하면 컴포넌트들이 서로 커플링되지 않고도 쉽게 통신할 수 있기 때문  
+이를 어떻게 활용할 수 있는지 보자
+
+#### 오토-비외른  
+동작 코드를 별도의 컴포넌트 클래스로 옮겼지만 아직 **추상화**하지 않음  
+Bjorn 클래스는 자신의 동작을 어떤 구체 클래스에서 정의하는지를 정확하게 알고 있음  
+이걸 바꿔보자  
+
+사용자 입력 처리 컴포넌트를 인터페이스 뒤로 숨기려고 함  
+InputComponent을 다음과 같이 추상 상위 클래스로 바꿔보자  
+```
+class InputComponent
+{
+public:
+  virtual ~InputComponent() {}
+  virtual void update(Bjorn& bjorn) = 0;
+};
+```
+
+사용자 입력을 처리하던 코드는 InputComponent 인터페이스를 구현하는 클래스로 끌어내림  
+```
+class PlayerInputComponent : public InputComponent
+{
+public:
+  virtual void update(Bjorn& bjorn)
+  {
+    switch (Controller::getJoystickDirection())
+    {
+      case DIR_LEFT:
+        bjorn.velocity -= WALK_ACCELERATION;
+        break;
+
+      case DIR_RIGHT:
+        bjorn.velocity += WALK_ACCELERATION;
+        break;
+    }
+  }
+
+private:
+  static const int WALK_ACCELERATION = 1;
+};
+```
+
+Bjorn 클래스는 InputComponent 구체 클래스의 인스턴스가 아닌 인터페이스의 포인터를 들고 있게 바꿔줌  
+```
+class Bjorn
+{
+public:
+  int velocity;
+  int x, y;
+
+  Bjorn(InputComponent* input)
+  : input_(input)
+  {}
+
+  void update(World& world, Graphics& graphics)
+  {
+    input_->update(*this);
+    physics_.update(*this, world);
+    graphics_.update(*this, graphics);
+  }
+
+private:
+  InputComponent* input_;
+  PhysicsComponent physics_;
+  GraphicsComponent graphics_;
+};
+```
 
 ---
 > 본 내용은 한빛미디어에서 출판한 '게임 프로그래밍 패턴 : 더 빠르고 깔끔한 게임 코드를 구현하는 13가지 디자인 패턴' 을 읽고 공부하며 작성하였습니다.
