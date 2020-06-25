@@ -2,7 +2,7 @@
 
 ---
 
-## OOP(Object-Oriented Programing)
+# OOP(Object-Oriented Programing)
 컴퓨터 프로그래밍의 패러다임  
 프로그램을 명령어의 목록이 아닌, 독립된 "객체"들의 모임으로 바라봄
 
@@ -55,7 +55,7 @@ C++ 에서 클래스를 이용해서 만들어진 객체를 **인스턴스(insta
 
 ---
 
-## 복사 생성자 (copy constructor)
+# 복사 생성자 (copy constructor)
 ```
 T(const T& a);
 ```
@@ -84,7 +84,7 @@ C++ 컴파일러는 위 문장을 아래와 동일하게 해석
 
 C++ 컴파일러는 디폴트 복사 생성자를 지원, 이는 대응되는 원소들을 1 대 1 복사를 해줌
 
-### 디폴트 복사 생성자의 한계
+## 디폴트 복사 생성자의 한계
 만약 초기화되는 멤버 변수 중 포인터가 있을때 디폴트 복사 생성자를 사용하면  
 기존의 클래스에 있는 포인터와 새로 생성된 클래스에 있는 포인터가 같은 값을 가지게 됨  
 
@@ -100,7 +100,7 @@ C++ 컴파일러는 디폴트 복사 생성자를 지원, 이는 대응되는 �
 
 ---
 
-## explict
+# explict
 ```
 void DoSomethingWithString(MyString s) {
   // Do something...
@@ -165,7 +165,7 @@ MyString s = 5;  // 컴파일 오류!
 
 위와 같이 explicit을 이용해 생성자를 선언해두면 명시적으로 생성자를 부를 때 에만 허용할 수 있게 됨
 
-## mutable
+# mutable
 mutable로 선언하면 const 함수에서도 이들 값을 바꿀 수 있음  
 
 ```
@@ -258,4 +258,214 @@ cache.update(user_id, user_data);  // <-- 불가능
 그렇다고 해서 GetUserInfo 에서 const 를 뗄 수 없는 것이,  
 이 함수를 사용하는 사용자의 입장에선 당연히 const 로 정의되어야 하는 함수임  
 
-따라서 이 경우, Cache 를 mutable 로 선언해버리면  됨
+따라서 이 경우, Cache 를 mutable 로 선언해버리면 됨
+
+---
+
+# 상속
+## 업 캐스팅, 다운 캐스팅
+Parent 클래스를 상속받는 Child 클래스가 있을 때  
+```
+Child c;
+Parent* p = &c;
+```
+위와 같은 선언이 가능  
+
+Child 는 Parent 를 상속받았기 때문에 Parent가 가지고 있는 멤버 변수, 멤버 함수를 모두 포함하고 있음  
+따라서 별 이상 없이 실행 가능  
+
+이렇게 자식 클래스에서 부모 클래스로 캐스팅 하는 것을 **업 캐스팅** 이라고 하고,  
+이와 반대로 부모 클래스에서 자식 클래스로 캐스팅 하는 것을 **다운 캐스팅** 이라고 함  
+
+다운 캐스팅에서 Parent 는 Child 가 가지고 있는 멤버 변수, 멤버 함수를 모르기 때문에  
+컴파일러상 함부로 다운 캐스팅 하는 것을 금지하고 있음(컴파일 에러가 발생)  
+
+```
+Parent p;
+Child* c = static_cast<child*>(p);
+```
+
+위와 같이 강제로 다운 캐스팅이 가능하나, 다운 캐스팅 이후 Child 에서 선언, 혹은 오버라이드 한 함수나 변수에 접근한다면  
+런타임 에러가 발생함  
+
+따라서 강제적으로 다운 캐스팅을 하는 경우, 컴파일 타임에서 오류를 찾아내기 매우 힘들기 때문에  
+작동이 보장되지 않는 다운 캐스팅은 권장하지 않음
+
+## vitural
+```
+class Parent {
+ public:
+  virtual void what() { cout << "Parent what()\n"; }
+};
+
+class Child : public Parent {
+ public:
+  void what() { cout << "Child what()\n"; }
+};
+
+int main(){
+  Parent p;
+  Child c;
+
+  Parent* p_p = &p;
+  Parent* p_c = &c;
+
+  p_p->what();
+  p_c->what();
+}
+```
+virtual 키워드를 사용하면 위와 같은 상황에서 적절한 함수를 호출해줌  
+virtual 키워드는 컴파일 시에 어떤 함수가 실행될 지 정해지지 않고 런타임 시에 정해줌  
+이러한 일을 **동적 바인딩(dynamic binding)** 이라고 부름  
+
+이러한 virtual 키워드가 붙은 함수를 **가상 함수(virtual function)** 라고 부르고,  
+파생 클래스의 함수가 기반 클래스의 함수를 오버라이드 하기 위해서는 두 함수의 꼴이 정확히 같아야함  
+
+C++ 11 에서는 파생 클래스에서 기반 클래스의 가상 함수를 오버라이드 하는 경우,  
+override 키워드를 통해서 명시적으로 나타낼 수 있음  
+override 키워드를 사용하게 되면, 실수로 오버라이드를 하지 않는 경우를 막을 수 있음
+
+## virtual 소멸자
+```
+#include <iostream>
+using namespace std;
+
+class Parent {
+ public:
+  Parent() { cout << "Parent 생성자 호출\n"; }
+  ~Parent() { cout << "Parent 소멸자 호출\n"; }
+};
+class Child : public Parent {
+ public:
+  Child() : Parent() { cout << "Child 생성자 호출\n"; }
+  ~Child() { cout << "Child 소멸자 호출\n"; }
+};
+
+int main() {
+  cout << "--- 평범한 Child 만들었을 때 ---\n";
+  { Child c; }
+  cout << "--- Parent 포인터로 Child 가리켰을 때 ---\n";
+  {
+    Parent *p = new Child();
+    delete p;
+  }
+}
+```
+위 코드를 실행시키면
+
+```
+--- 평범한 Child 만들었을 때 ---
+Parent 생성자 호출
+Child 생성자 호출
+Child 소멸자 호출
+Parent 소멸자 호출
+--- Parent 포인터로 Child 가리켰을 때 ---
+Parent 생성자 호출
+Child 생성자 호출
+Parent 소멸자 호출
+```
+와 같은 결과가 나옴  
+
+위와 같은 상황에서 문제는 Parent 포인터가 Child 객체를 가리킬 때에서  
+delete p 를 하더라도, p 가 가리키는 것은 Parent 객체가 아닌 Child 객체 이기 때문에,  
+위에서 보통의 Child 객체가 소멸되는 것과 같은 순서로 생성자와 소멸자들이 호출되어야만 함  
+하지만 실제로는, Child 소멸자가 호출되지 않음  
+
+소멸자가 호출되지 않는다면 여러가지 문제가 생길 수 있음  
+예를 들어서, Child 객체에서 메모리를 동적으로 할당하고 소멸자에서 해제하는데,  
+소멸자가 호출 안됬다면 메모리 누수(memory leak)가 생기게 됨  
+
+이 상황의 해결책은 Parent 의 소멸자를 virtual 로 만들어버리면 됨  
+Parent 의 소멸자를 virtual 로 만들면, p 가 소멸자를 호출할 때, Child 의 소멸자를 성공적으로 호출할 수 있게 됨
+
+```
+#include <iostream>
+using namespace std;
+
+class Parent {
+ public:
+  Parent() { cout << "Parent 생성자 호출\n"; }
+  virtual ~Parent() { cout << "Parent 소멸자 호출\n"; }
+};
+class Child : public Parent {
+ public:
+  Child() : Parent() { cout << "Child 생성자 호출\n"; }
+  ~Child() { cout << "Child 소멸자 호출\n"; }
+};
+
+int main() {
+  cout << "--- 평범한 Child 만들었을 때 ---\n";
+  { Child c; }
+  cout << "--- Parent 포인터로 Child 가리켰을 때 ---\n";
+  {
+    Parent *p = new Child();
+    delete p;
+  }
+}
+```
+
+```
+--- 평범한 Child 만들었을 때 ---
+Parent 생성자 호출
+Child 생성자 호출
+Child 소멸자 호출
+Parent 소멸자 호출
+--- Parent 포인터로 Child 가리켰을 때 ---
+Parent 생성자 호출
+Child 생성자 호출
+Child 소멸자 호출
+Parent 소멸자 호출
+```
+
+왜 Parent 소멸자는 호출이 되었는가?  
+이는 Child 소멸자를 호출하면서, Child 소멸자가 **알아서** Parent 의 소멸자도 호출해주기 때문  
+(Child 는 자신이 Parent 를 상속받는다는 것을 알고 있음)
+
+반면에 Parent 소멸자를 먼저 호출하게 되면, Parent 는 Child 가 있는지 없는지 모르므로,  
+Child 소멸자를 호출해줄 수 없음  
+(Parent 는 자신이 누구에서 상속해주는지 알 수 없음)
+
+이와 같은 이유로, 상속될 여지가 있는 Parent 클래스들은 반드시 소멸자를 virtual 로 만들어주어야  
+나중에 문제가 발생할 여지가 없게 됨
+
+## 가상 함수의 구현 원리  
+왜 C++ 에서는 virtual 키워드를 이용해 사용자가 직접 virtual 로 선언하도록 하였을까  
+그 이유는 가상 함수를 사용하게 되면 약간의 **오버헤드 (overhead)** 가 존재하기 때문  
+
+C++ 컴파일러는 가상 함수가 하나라도 존재하는 클래스에 대해서, **가상 함수 테이블(virtual function table; vtable)** 을 만들게 됨  
+함수의 이름과 실제로 어떤 함수가 대응되는지 테이블로 저장하고 있는 것  
+
+비 가상함수들은 그냥 단순히 특별한 단계를 걸치지 않고 함수를 호출하면 직접 실행됨  
+
+하지만, 가상 함수를 호출하였을 때는 가상 함수 테이블을 한 단계 더 걸쳐서, 실제로 어떤 함수를 고를지 결정하게 됨  
+
+따라서 보통의 함수를 호출하는 것 보다 가상 함수를 호출하는 데 걸리는 시간이 조금 더 오래 걸림  
+
+## 순수 가상 함수(pure virtual function)와 추상 클래스(abstract class)
+```
+class Animal {
+ public:
+  Animal() {}
+  virtual ~Animal() {}
+  virtual void speak() = 0;
+};
+```
+speak 함수는 함수의 몸통이 정의되어 있지 않고 단순히 = 0; 으로 처리되어 있는 가상 함수  
+이 함수는 "무엇을 하는지 정의되어 있지 않는 함수"  
+다시 말해 이 함수는 **반드시 오버라이딩 되어야만 하는 함수**  
+
+이렇게, 가상 함수에 = 0; 을 붙여서, 반드시 오버라이딩 되도록 만든 함수를  
+완전한 가상 함수라 해서, **순수 가상 함수(pure virtual function)** 라고 부름  
+
+순수 가상 함수는 본체가 없기 때문에, 이 함수를 호출하는 것은 불가능  
+그렇기 때문에, Animal 객체를 생성하는것 또한 불가능  
+
+따라서 Animal 처럼, 순수 가상 함수를 최소 한 개 이상 포함하고 있는 클래스는 객체를 생성할 수 없으며,  
+인스턴스화 시키기 위해서는 이 클래스를 상속 받는 클래스를 만들어서 모든 순수 가상 함수를 오버라이딩 해주어야만 함
+
+이렇게 순수 가상 함수를 최소 한개 포함하고 있는, 반드시 상속 되어야 하는 클래스를 가리켜  
+**추상 클래스 (abstract class)** 라고 부름
+
+추상 클래스는 이 클래스를 상속받아서 사용하는 사람에게 "이 기능은 일반적인 상황에서 만들기 힘드니 너가 직접 특수화 되는 클래스에 맞추어서 만들어서 써라." 라고 말해주는 것  
+
+추상 클래스의 또 한가지 특징은 비록 객체는 생성할 수 없지만, 추상 클래스를 가리키는 포인터는 문제 없이 만들 수 있다는 점  
