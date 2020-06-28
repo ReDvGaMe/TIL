@@ -666,3 +666,423 @@ weak_ptr 에 정의된 lock 함수는 만일 weak_ptr 가 가리키는 객체가
 
 제어 블록을 메모리에서 해제해야 하기 위해서는 이를 가리키는 weak_ptr 역시 0 개여야 함  
 따라서 제어 블록에는 참조 개수와 더불어 약한 참조 개수 (weak count) 기록하게 됨
+
+---
+
+# 쓰레드(thread)
+프로세스란, 운영체제에서 실행되는 프로그램의 최소 단위  
+프로세스는 CPU 의 코어에서 실행되고 있음  
+
+프로세스에서 실행되는 흐름의 단위를 스레드(thread) 라고 부름  
+
+한 개의 프로세스는 최소 한 개 쓰레드로 이루어져 있으며, 여러 개의 쓰레드로 구성될 수 있음  
+이렇게 여러개의 쓰레드로 구성된 프로그램을 **멀티 쓰레드 (multithread)** 프로그램 이라 함
+
+쓰레드와 프로세스의 가장 큰 차이점은 프로세스들은 서로 메모리를 공유하지 않음  
+하지만 쓰레드의 경우 한 프로세스 안에 쓰레드 1 과 쓰레드 2 가 있다면, 서로 같은 메모리를 공유하게 됨  
+
+프로그램을 멀티 쓰레드로 만드는 것이 유리할까  
+1. 병렬 가능한 (Parallelizable) 작업들  
+어떠한 작업을 여러개의 다른 쓰레드를 이용해서 좀 더 빠르게 수행하는 것을 **병렬화(parallelize)** 라고 함   
+하지만 모든 작업들이 이렇게 병렬화가 가능한 것이 아님  
+
+    예를 들어, 피보나치 수열을 계산하는 프로그램은 병렬화 하는 것이 매우 까다로움  
+이러한 문제가 발생하는 근본적인 이유는 어떠한 연산 (연산 A) 을 수행하기 위해 다른 연산 (연산 B)의 결과가 필요하기 때문 이라 볼 수 있음  
+
+    이와 같은 상황을 A 가 B 에 **의존(dependent)** 한다 라고 함
+
+    프로그램 논리 구조 상에서 연산들 간의 의존 관계가 많을 수 록 병렬화가 어려워지고,  
+    반대로, 다른 연산의 결과와 관계없이 독립적으로 수행할 수 있는 구조가 많을 수 록 병렬화가 매우 쉬워짐
+
+2. 대기시간이 긴 작업들  
+CPU 의 처리 속도에 비해 인터넷은 매우 느림  
+ping 시간동안 CPU 코어를 비효율적으로 사용하게 되는 셈  
+여러 쓰레드에서 함수를 실행시키면 컨텍스트 스위칭을 통해 기다리는 시간 없이 CPU 를 최대한으로 사용
+
+## ◇ C++ 에서 쓰레드 생성
+C++ 11 에서부터 표준에 쓰레드가 추가되면서, 쓰레드 사용이 매우 편리해짐  
+```
+#include <thread>
+```
+thread 헤더파일 추가
+
+```
+thread t(func);
+```
+thread 객체를 생성  
+이렇게 생성된 `t`는 인자로 전달받은 함수 `func`를 새로운 쓰레드에서 실행하게 됨  
+
+한 가지 중요한 사실은 이 쓰레드 들이 CPU 코어에 어떻게 할당되고, 또 언제 컨텍스트 스위치를 할 지는 전적으로 운영체제에게 달려있다는 점  
+
+```
+t.join();
+```
+`join` 은 해당하는 쓰레드들이 실행을 종료하면 리턴하는 함수
+
+join을 하지않으면 쓰레드들의 내용이 채 실행되기 전에 main 함수가 종료되어서 쓰레드 객체들의 소멸자가 호출
+
+C++ 표준에 따르면, join 되거나 detach 되지 않는 쓰레드들의 소멸자가 호출된다면 예외를 발생시키도록 명시되어 있음  
+따라서, 우리의 쓰레드 객체들이 join 이나 detach 모두 되지 않았으므로 위와 같은 문제가 발생하게 됨  
+
+`detach`는 해당 쓰레드를 실행 시킨 후, **잊어버리는 것**  
+대신 쓰레드는 알아서 백그라운드에서 돌아가게 됨
+
+## ◇ 쓰레드에 인자 전달하기  
+쓰레드를 생성할 때 함수에 인자들을 전달하는 방법은 매우 간단  
+thread 생성자의 첫번째 인자로 함수 (정확히는 Callable) 를 전달하고, 이어서 해당 함수에 전달할 인자들을 써주면 됨
+
+각 쓰레드에는 고유 아이디 번호가 할당 됨  
+만약에 지금 어떤 쓰레드에서 작업중인지 보고싶다면 `this_thread::get_id` 함수를 통해서 현재 돌아가고 있는 쓰레드의 아이디를 알 수 있음
+
+쓰레드는 리턴값 이란것이 없기 때문에 만일 어떠한 결과를 반환하고 싶다면 포인터의 형태로 전달해야함  
+
+## ◇ 경쟁 상태(race condtion), 뮤텍스 (mutex)
+**경쟁 상태(race condtion)** 는 서로 다른 쓰레드들이 동일한 자원을 사용할 때 발생하는 문제  
+
+한 번에 한 쓰레드에서만 코드를 실행시킬 수 있게 해주는 기능을 하는 객체가 **뮤텍스 (mutex)**  
+mutex 라는 단어는 영어의 **상호 배제 (mutual exclusion)** 라는 단어에서 따온 단어  
+
+```
+std::mutex m;
+```  
+뮤텍스 객체 정의
+
+```
+void worker(int& result, std::mutex& m)
+```
+뮤텍스를 각 쓰레드에서 사용하기 위해 전달
+
+```
+m.lock();
+result += 1;
+m.unlock();
+```
+실제 사용  
+`m.lock()` 은 뮤텍스 m을 내가 소유하겠다 라는 뜻  
+이 때 중요한 사실은, 한 번에 한 쓰레드에서만 m 의 사용 권한을 갖는다는 것
+다른 쓰레드에서 `m.lock()` 을 하였다면 m 을 소유한 쓰레드가 `m.unlock()` 을 통해 m 을 반환할 때 까지 무한정 기다리게 됨  
+
+`m.lock()` 과 `m.unlock()` 사이에 한 쓰레드만이 유일하게 실행할 수 있는 코드 부분을 **임계 영역(critical section)** 이라고 부름  
+
+뮤텍스를 취득한 쓰레드가 unlock 을 하지 않으므로, 다른 모든 쓰레드들이 기다리게 됨  
+결국 아무 쓰레드도 연산을 진행하지 못하게 됨  
+이러한 상황을 **데드락 (deadlock)** 이라고 함  
+
+뮤텍스도 마찬가지로 사용 후 해제 패턴을 따르기 때문에 동일하게 소멸자에서 처리할 수 있음  
+
+```
+void worker(int& result, std::mutex& m) {
+  for (int i = 0; i < 10000; i++) {
+    // lock 생성 시에 m.lock() 을 실행한다고 보면 된다.
+    std::lock_guard<std::mutex> lock(m);
+    result += 1;
+
+    // scope 를 빠져 나가면 lock 이 소멸되면서
+    // m 을 알아서 unlock 한다.
+  }
+}
+```
+
+```
+std::lock_guard<std::mutex> lock(m);
+```
+lock_guard 객체는 뮤텍스를 인자로 받아서 생성하게 되는데, 이 때 생성자에서 뮤텍스를 lock 하게 됨  
+그리고 lock_guard 가 소멸될 때 알아서 lock 했던 뮤텍스를 unlock 하게 됨  
+
+## ◇ 데드락 (deadlock)  
+```
+#include <iostream>
+#include <mutex>  // mutex 를 사용하기 위해 필요
+#include <thread>
+
+void worker1(std::mutex& m1, std::mutex& m2) {
+  for (int i = 0; i < 10000; i++) {
+    std::lock_guard<std::mutex> lock1(m1);
+    std::lock_guard<std::mutex> lock2(m2);
+    // Do something
+  }
+}
+
+void worker2(std::mutex& m1, std::mutex& m2) {
+  for (int i = 0; i < 10000; i++) {
+    std::lock_guard<std::mutex> lock2(m2);
+    std::lock_guard<std::mutex> lock1(m1);
+    // Do something
+  }
+}
+
+int main() {
+  int counter = 0;
+  std::mutex m1, m2;  // 우리의 mutex 객체
+
+  std::thread t1(worker1, std::ref(m1), std::ref(m2));
+  std::thread t2(worker2, std::ref(m1), std::ref(m2));
+
+  t1.join();
+  t2.join();
+
+  std::cout << "끝" << std::endl;
+}
+```
+위 코드에서 뮤텍스를 얻는 순서를 보면
+```
+std::lock_guard<std::mutex> lock1(m1);
+std::lock_guard<std::mutex> lock2(m2);
+```
+worker1에서는 m1 을 먼저 lock 한 후 m2 를 lock 하게 됨
+
+```
+std::lock_guard<std::mutex> lock2(m2);
+std::lock_guard<std::mutex> lock1(m1);
+```
+worker2에서는 m2 를 먼저 lock 한 후 m1 을 lock 하게 됨  
+
+worker1 에서 m2 를 lock 하기 위해서는 worker2 에서 m2 를 unlock 해야 됨  
+하지만 그러기 위해서는 worker2 에서 m1 을 lock 해야 함  
+그런데 이 역시 불가능, 왜냐하면 worker1 에 m1 을 lock 하고 있기 때문  
+
+즉 worker1 과 worker2 모두 이러지도 저러지도 못하는 데드락 상황에 빠지게 됨  
+분명히 뮤텍스를 lock 하면 반드시 unlock 한다라는 원칙을 지켰음에도 불구하고 데드락을 피할 수 없었음  
+
+한 가지 방법으로는 한 쓰레드에게 우선권을 주는 것입니다.  
+한 쓰레드에게 항상 먼저 처리하도록 우선권을 주는 것
+
+적어도 쓰레드들이 뒤엉켜서 아무도 못하는 상황은 막을 수 있음  
+하지만 한 쓰레드만 실행되고 다른 쓰레드는 실행될 수 없는 **기아 상태(starvation)** 가 발생할 수 있습니다.  
+
+위에서 말한 해결 방식을 코드로 옮기면  
+```
+m1.lock();
+m2.lock();
+std::cout << "Worker1 Hi! " << i << std::endl;
+
+m2.unlock();
+m1.unlock();
+```
+일단 worker1 은 lock_guard 를 통해 구현한 부분을 그대로 옮겨왔음  
+worker1 이 뮤텍스를 갖고 경쟁할 때 우선권을 가지므로 굳이 코드를 바꿀 필요가 없음  
+
+```
+while (true) {
+  m2.lock();
+
+  // m1 이 이미 lock 되어 있다면 unlock
+  if (!m1.try_lock()) {
+    m2.unlock();
+    continue;
+  }
+
+  std::cout << "Worker2 Hi! " << i << std::endl;
+  m1.unlock();
+  m2.unlock();
+  break;
+}
+```
+C++ 에서는 try_lock 이라는 함수를 제공하는데, 이 함수는 만일 m1 을 lock 할 수 있다면 lock 을 하고 true 를 리턴함  
+그런데 lock() 함수와는 다르게, lock 을 할 수 없다면 기다리지 않고 그냥 false 를 리턴함  
+
+따라서 m1.try_lock() 이 true 를 리턴하였다면  
+worker2 가 m1 과 m2 를 성공적으로 lock 한 상황이므로 그대로 처리하면 됨
+
+반면에 m1.try_lock() 이 false 를 리턴하였다면  
+worker1 이 이미 m1 을 lock 했다는 의미, 이 경우 worker1 에서 우선권을 줘야 하기 때문에 자신이 이미 얻은 m2 역시 worker1 에게 제공해야 함  
+
+그 후에 while 을 통해 m1 과 m2 모두 lock 하는 것을 성공할 때 까지 계속 시도하게 되며,  
+성공하게 되면 while 을 빠져나감
+
+데드락을 해결하는 것은 매우 복잡하며 완벽하지 않음  
+따라서 데드락 상황이 발생할 수 없게 프로그램을 잘 설계하는 것이 중요
+
+데드락 상황을 피하기 위한 가이드라인
+
+**중첩된 Lock 을 사용하는 것을 피해라**
+모든 쓰레드들이 최대 1 개의 Lock 만을 소유한다면 (일반적인 경우에) 데드락 상황이 발생하는 것을 피할 수 있음  
+또한 대부분의 디자인에서는 1 개의 Lock 으로도 충분함  
+만일 여러개의 Lock 을 필요로 한다면 정말 필요로 하는지를 되물어보는 것이 좋음
+
+**Lock 을 소유하고 있을 때 유저 코드를 호출하는 것을 피해라**
+유저 코드에서 Lock 을 소유할 수 도 있기에 중첩된 Lock 을 얻는 것을 피하려면  
+Lock 소유시 유저 코드를 호출하는 것을 지양해야 함
+
+**Lock 들을 언제나 정해진 순서로 획득해라**
+만일 여러개의 Lock 들을 획득해야 할 상황이 온다면, 반드시 이 Lock 들을 정해진 순서로 획득해야 함  
+앞선 예제에서 데드락이 발생했던 이유 역시, worker1 에서는 m1, m2 순으로 lock 을 하였지만 worker2 에서는 m2, m1 순으로 lock 을 하였기 때문  
+만일 worker2 에서 역시 m1, m2 순으로 lock 을 하였다면 데드락은 발생하지 않았을 것  
+
+## ◇ 생산자(Producer) 와 소비자(Consumer) 패턴
+생산자의 경우, 무언가 처리할 일을 받아오는 쓰레드를 의미  
+예를 들어, 인터넷에서 페이지를 긁어서 분석하는 프로그램을 만든다고 할 때 페이지를 긁어 오는 쓰레드가 생산자
+
+소비자의 경우, 받은 일을 처리하는 쓰레드를 의미  
+앞선 예제의 경우 긁어온 페이지를 분석하는 쓰레드가 소비자  
+
+생산자(Producer) 
+```
+// 웹사이트를 다운로드 하는데 걸리는 시간이라 생각하면 됨
+// 각 쓰레드 별로 다운로드 하는데 걸리는 시간이 다름
+std::this_thread::sleep_for(std::chrono::milliseconds(100 * index));
+std::string content = "웹사이트 : " + std::to_string(i) + " from thread(" + std::to_string(index) + ")\n";
+
+// downloaded_pages 는 쓰레드 사이에서 공유되므로 critical section 에 넣어야 함
+m->lock();
+downloaded_pages->push(content);
+m->unlock();
+```
+이제 다운 받은 페이지를 작업 큐에 집어 넣어야 함  
+이 때 주의할 점으로, producer 쓰레드가 1 개가 아니라 5 개나 있다는 점  
+따라서 downloaded_pages 에 접근하는 쓰레드들 사이에 race condition 이 발생할 수 있음
+
+이를 방지 하기 위해서 뮤텍스 m 으로 해당 코드를 감싸서 문제가 발생하지 않게 해줌
+
+consumer 쓰레드의 입장에서는 언제 일이 올지 알 수 없기 때문에  
+downloaded_pages 가 비어있지 않을 때 까지 계속 while 루프를 돌아야함  
+한 가지 문제는 컴퓨터 CPU 의 속도에 비해 웹사이트 정보가 큐에 추가되는 속도는 매우 느리다는 점
+따라서 아래와 같이 구현
+```
+m->lock();
+// 만일 현재 다운로드한 페이지가 없다면 다시 대기.
+if (downloaded_pages->empty()) {
+  m->unlock();
+
+  // 10 밀리초 뒤에 다시 확인한다.
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  continue;
+}
+```
+
+`downloaded_pages->empty()` 라면, 강제로 쓰레드를 sleep 시켜서 10 밀리초 뒤에 다시 확인하는 식으로 구현
+
+`m->unlock` 을 위 if 문 안에서 호출하지 않는다면 데드락이 발생하게 됨  
+
+```
+// 맨 앞의 페이지를 읽고 대기 목록에서 제거한다.
+std::string content = downloaded_pages->front();
+downloaded_pages->pop();
+
+(*num_processed)++;
+m->unlock();
+
+// content 를 처리한다.
+std::cout << content;
+std::this_thread::sleep_for(std::chrono::milliseconds(80));
+```
+
+마지막으로 content 를 처리하는 과정은 front 를 통해서 맨 앞의 원소를 얻은 뒤에, pop 을 호출하면 맨 앞의 원소를 큐에서 제거함
+
+이 때 m->unlock 을 함으로써 다른 쓰레드에서도 다음 원소를 바로 처리할 수 있도록 해야함
+
+위 구현에서 consumer 쓰레드가 10 밀리초 마다 downloaded_pages 에 할일이 있는지 확인하고 없으면 다시 기다리는 형태를 취하고 있음  
+
+이는 매우 비효율적  
+매 번 언제 올지 모르는 데이터를 확인하기 위해 지속적으로 mutex 를 lock 하고, 큐를 확인해야 하기 때문
+
+이보다는 producer 에서 데이터가 뜸하게 오는 것을 안다면 consumer 는 아예 재워놓고, producer 에서 데이터가 온다면 consumer 를 깨우는 방식이 효율적  
+쓰레드를 재워놓게 되면, 그 사이에 다른 쓰레드들이 일을 할 수 있기 때문에 CPU 를 더 효율적으로 쓸 수 있을 것
+
+### ▷ 조건 변수(condition_variable)
+위와 같은 상황에서 쓰레드들을 10 밀리초 마다 재웠다 깨웠다 할 수 밖에 없었던 이유는 '어떠한 조건을 만족할 때 까지 자라' 라는 명령을 내릴 수 없었기 때문  
+
+이는 **조건 변수(condition_variable)** 를 통해 해결할 수 있음  
+
+```
+condition_variable cv;
+```
+먼저 뮤텍스를 정의할 때와 같이 condition_variable 을 정의  
+
+**consumer 쓰레드**
+```
+void consumer(std::queue<std::string>* downloaded_pages, std::mutex* m,
+              int* num_processed, std::condition_variable* cv) {
+  while (*num_processed < 25) {
+    std::unique_lock<std::mutex> lk(*m);
+
+    cv->wait(lk, [&] { return !downloaded_pages->empty() || *num_processed == 25; });
+
+    if (*num_processed == 25) {
+      lk.unlock();
+      return;
+    }
+
+    // 맨 앞의 페이지를 읽고 대기 목록에서 제거한다.
+    std::string content = downloaded_pages->front();
+    downloaded_pages->pop();
+
+    (*num_processed)++;
+    lk.unlock();
+
+    // content 를 처리한다.
+    std::cout << content;
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+  }
+}
+```
+
+```
+std::unique_lock<std::mutex> lk(*m);
+
+cv->wait(lk, [&] { return !downloaded_pages->empty() || *num_processed == 25; });
+```
+condition_variable 의 wait 함수에 어떤 조건이 참이 될 때 까지 기다릴지 해당 조건을 인자로 전달해야 함  
+
+조건 변수는 만일 해당 조건이 거짓이라면, lk 를 unlock 한 뒤에, 영원히 sleep 하게 됨  
+이 때 이 쓰레드는 다른 누가 깨워주기 전까지 계속 sleep 된 상태로 기다리게 됨  
+한 가지 중요한 점이라면 lk 를 unlock 한다는 점
+
+반면에 해당 조건이 참이라면 cv.wait 는 그대로 리턴해서 consumer 의 content 를 처리하는 부분이 그대로 실행되게 됨  
+
+```
+std::unique_lock<std::mutex> lk(*m);
+```
+
+`unique_lock` 은 `lock_guard` 와 거의 동일  
+다만, `lock_guard` 의 경우 생성자 말고는 따로 lock 을 할 수 없는데, `unique_lock` 은 unlock 후에 다시 lock 할 수 있음
+
+위에서 `unique_lock` 을 사용한 이유는 `cv->wait` 가 `unique_lock` 을 인자로 받기 때문
+
+**producer 쓰레드**
+```
+void producer(std::queue<std::string>* downloaded_pages, std::mutex* m,
+              int index, std::condition_variable* cv) {
+  for (int i = 0; i < 5; i++) {
+    // 웹사이트를 다운로드 하는데 걸리는 시간이라 생각하면 된다.
+    // 각 쓰레드 별로 다운로드 하는데 걸리는 시간이 다르다.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100 * index));
+    std::string content = "웹사이트 : " + std::to_string(i) + " from thread(" +
+                          std::to_string(index) + ")\n";
+
+    // data 는 쓰레드 사이에서 공유되므로 critical section 에 넣어야 한다.
+    m->lock();
+    downloaded_pages->push(content);
+    m->unlock();
+
+    // consumer 에게 content 가 준비되었음을 알린다.
+    cv->notify_one();
+  }
+}
+```
+
+```
+// consumer 에게 content 가 준비되었음을 알린다.
+cv->notify_one();
+```
+
+만약에 페이지를 하나 다운 받았다면, 잠자고 있는 쓰레드들 중 하나를 깨워서 일을 시킴  
+(만약에 모든 쓰레드들이 일을 하고 있는 상태라면 아무 일도 일어나지 않음)  
+notify_one 함수는 조건이 거짓이라 자고 있는 쓰레드 중 하나를 깨워서 조건을 다시 검사하게 해줌  
+만일 조건이 참이 된다면 그 쓰레드가 다시 일을 시작함  
+
+```
+for (int i = 0; i < 5; i++) {
+  producers[i].join();
+}
+
+// 나머지 자고 있는 쓰레드들을 모두 깨운다.
+cv.notify_all();
+```
+
+producer 들이 모두 일을 끝낸 시점을 생각해본다면,  
+자고 있는 일부 consumer 쓰레드들이 있을 것  
+만약에 `cv.notify_all()` 을 하지 않는다면, 자고 있는 consumer 쓰레드들의 경우 join 되지 않는 문제가 발생함  
+
+따라서 마지막으로 `cv.notify_all()` 을 통해서 모든 쓰레드를 깨워서 조건을 검사하도록 함  
+해당 시점에선 이미 num_processed 가 25 가 되어 있을 것이므로, 모든 쓰레드들이 잠에서 깨어나 종료하게 됨
